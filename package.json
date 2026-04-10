@@ -1,16 +1,60 @@
 {
-  "name": "sophon",
+  "name": "@sophiasuu/sophon",
   "version": "0.1.0",
-  "private": true,
-  "description": "Open source pSEO toolkit for generating Next.js SEO surfaces at scale.",
+  "description": "Agentic programmatic SEO toolkit for modern web frameworks",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sophiasuu/Sophon.git"
+  },
+  "homepage": "https://github.com/Sophiasuu/Sophon#readme",
+  "bugs": {
+    "url": "https://github.com/Sophiasuu/Sophon/issues"
+  },
+  "keywords": [
+    "seo",
+    "programmatic-seo",
+    "pseo",
+    "nextjs",
+    "astro",
+    "nuxt",
+    "sveltekit",
+    "remix",
+    "cli",
+    "content-generation"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "sophon": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
-    "discover": "tsx scripts/discover.ts",
-    "generate": "tsx scripts/generate.ts",
-    "technical": "tsx scripts/technical.ts"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "@types/node": "latest",
+    "tsup": "latest",
+    "typescript": "latest"
   }
 }

@@ -1,0 +1,48 @@
+import type { GenerateOptions } from "../types";
+
+export function astro(_options: GenerateOptions): string {
+  return `---
+// SOPHON GENERATED
+// Do not invent statistics, prices, comparisons, or factual claims
+// All TODO sections must be filled with grounded sourced content
+// Review YMYL warnings before publishing
+
+const entity = {
+  name: __ENTITY_NAME__,
+  slug: __ENTITY_SLUG__,
+  title: __ENTITY_TITLE__,
+  description: __ENTITY_DESCRIPTION__,
+  tags: __ENTITY_TAGS__,
+  attributes: __ENTITY_ATTRIBUTES__,
+};
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{entity.title}</title>
+    <meta name="description" content={entity.description} />
+  </head>
+  <body>
+    <main>
+      <h1>{entity.title}</h1>
+      <p>{entity.description}</p>
+      <section>
+        <h2>TODO: Intro paragraph</h2>
+        <p>Replace with grounded introductory content for {entity.name}.</p>
+      </section>
+      <section>
+        <h2>TODO: FAQ section</h2>
+        <p>Add sourced FAQ content before publishing.</p>
+      </section>
+      <section>
+        <h2>TODO: Comparison section</h2>
+        <p>Add evidence-based comparisons only after validating claims.</p>
+      </section>
+      <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
+    </main>
+  </body>
+</html>
+`;
+}

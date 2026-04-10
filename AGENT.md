@@ -1,25 +1,26 @@
 # AGENT.md
 
-This file instructs Claude Code how to run Sophon autonomously inside any user's existing Next.js project.
+This file instructs Claude Code how to run Sophon autonomously inside any user's project using Sophon's npm package, CLI, and programmatic API.
 
 ## Mission
 
-Turn a seed keyword, niche, or CSV entity list into a production-ready programmatic SEO scaffold for a Next.js App Router application.
+Turn a seed keyword, niche, or CSV entity list into a production-ready programmatic SEO scaffold using Sophon's package-native workflow.
 
 Claude Code should:
 
-1. inspect the existing Next.js project structure
+1. inspect the existing host project structure
 2. discover or import entities
-3. generate one static route per entity page
+3. generate one static route per entity page using the appropriate framework adapter
 4. generate technical SEO assets
-5. leave explicit TODO markers where AI generation, scraping, or business-specific logic should be added
+5. optionally enrich content via the Claude-powered enrichment step
+6. leave explicit TODO markers where AI generation, scraping, or business-specific logic should be added
 6. avoid breaking existing routes or overwriting custom application code unnecessarily
 
 ## Assumptions
 
-- The target project is a Next.js application using the App Router.
+- The target project may be Next.js, Astro, Nuxt, SvelteKit, or Remix.
 - The project owner wants Sophon integrated with minimal manual setup.
-- Sophon should remain framework agnostic in its core concepts, but output should target Next.js first.
+- Sophon should remain framework agnostic in its core concepts while generating framework-specific output.
 
 ## Operating Rules
 
@@ -27,7 +28,7 @@ Claude Code should:
 2. Prefer additive changes over destructive replacements.
 3. Keep generated output isolated to predictable folders and files.
 4. Preserve the host project's conventions when clear.
-5. If routing structure conflicts with `app/[entity]/page.tsx`, adapt the generated route to the project's existing conventions.
+5. If framework conventions conflict with the default output path, adapt the generated route placement without discarding framework-specific file requirements.
 6. Preserve the generated content safety guardrails and review warnings in generated page outputs.
 7. If data or content generation is incomplete, scaffold with clear TODO blocks instead of inventing unsupported behavior.
 
@@ -35,10 +36,10 @@ Claude Code should:
 
 ### Step 1: Inspect the host project
 
-- Confirm the project is Next.js.
-- Check whether the App Router exists under `app/`.
-- Check whether there is already an entity route that Sophon should extend instead of replacing.
-- Identify whether `public/` exists for `sitemap.xml` and `robots.txt` outputs.
+- Confirm which framework the host project uses.
+- Check whether the expected output root already exists.
+- Check whether there is already an entity route structure that Sophon should extend instead of replacing.
+- Identify whether the framework expects public assets under `public/`, `static/`, or another conventional directory.
 
 ### Step 2: Gather input
 
@@ -59,11 +60,12 @@ If the user provides both a seed keyword and CSV, prefer CSV as the source of tr
 
 ### Step 4: Generate pages
 
-- Generate one static page per entity at `app/[slug]/page.tsx`.
+- Generate one static page per entity using the selected framework adapter.
 - Hydrate entity name, slug, SEO title, meta description, tags, and metadata attributes into each page.
 - Preserve the generated hallucination-prevention comment block and content TODO sections.
 - Do not hardcode niche-specific copy unless explicitly generated from project data.
 - Review generation warnings for YMYL, thin content, and duplicate slug risks before publishing.
+- For SvelteKit, generate both `src/routes/[slug]/+page.svelte` and the companion `src/routes/[slug]/+page.ts` file.
 
 ### Step 5: Generate technical SEO assets
 
@@ -73,7 +75,13 @@ If the user provides both a seed keyword and CSV, prefer CSV as the source of tr
 - Generate internal linking data based on shared seed keywords and tags when possible.
 - Keep generated raw technical files under predictable output paths such as `public/sophon/`.
 
-### Step 6: Integrate carefully
+### Step 6: Enrich content when needed
+
+- Use `npx sophon enrich` or the programmatic `enrich()` API when the user wants AI-assisted content JSON.
+- Respect `ANTHROPIC_API_KEY` from the environment.
+- Do not block the overall workflow if one entity fails enrichment; continue and log the error.
+
+### Step 7: Integrate carefully
 
 - If the host project already has metadata helpers, align with them.
 - If the host project already owns sitemap or robots generation, merge or adapt instead of duplicating blindly.
@@ -81,28 +89,34 @@ If the user provides both a seed keyword and CSV, prefer CSV as the source of tr
 
 ## Command Pattern
 
-If the environment supports `tsx`, use:
+Default to the package CLI:
 
 ```bash
-npx tsx scripts/discover.ts --seed "best payroll software"
-npx tsx scripts/generate.ts --output ./app
-npx tsx scripts/technical.ts --site https://example.com --output ./public
+npx @sophiasuu/sophon discover --seed "best payroll software"
+npx @sophiasuu/sophon generate --framework nextjs
+npx @sophiasuu/sophon technical --site https://example.com
 ```
 
 For custom seed expansion patterns, prefer repeated `--pattern` flags:
 
 ```bash
-npx tsx scripts/discover.ts --seed "best payroll software" --pattern "{seed} alternatives" --pattern "{seed} pricing"
+npx @sophiasuu/sophon discover --seed "best payroll software" --pattern "{seed} alternatives" --pattern "{seed} pricing"
 ```
 
-If `tsx` is missing, add the smallest reasonable script-running dependency or explain what needs to be installed.
+For full runs with per-step outputs:
+
+```bash
+npx @sophiasuu/sophon run --seed "best payroll software" --framework sveltekit --site https://example.com --discover-output ./data/entities.json --generate-output ./src/routes --technical-output ./static --enrich-output ./data/enriched
+```
+
+If the CLI is not built yet, install dependencies and run `npm run build` first.
 
 ## Success Criteria
 
 The task is complete when:
 
 - entities exist in `data/entities.json`
-- static Next.js App Router pages exist for each entity
+- framework-appropriate static pages exist for each entity
 - technical SEO outputs are generated
 - the generated code is easy for the user to extend
 - all unsupported AI generation sections are labeled with TODOs
@@ -118,7 +132,7 @@ The task is complete when:
 ## Example User Prompts
 
 ```text
-Use Sophon to build a pSEO surface for "best time tracking software" in this project.
+Use Sophon to build a pSEO surface for "best time tracking software" in this project and detect the right framework automatically.
 ```
 
 ```text
@@ -126,5 +140,5 @@ Use Sophon with ./input/saas-entities.csv and generate pages plus sitemap output
 ```
 
 ```text
-Integrate Sophon into this existing Next.js app, but preserve the current metadata utilities and route structure.
+Integrate Sophon into this existing SvelteKit app, generate both +page.svelte and +page.ts files for each entity, and preserve the current route structure.
 ```

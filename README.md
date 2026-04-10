@@ -1,16 +1,16 @@
 # Sophon
 
-Sophon is an open source programmatic SEO toolkit for teams that want to generate SEO-ready pages inside an existing Next.js app without hand-authoring hundreds of routes.
+Sophon is an open source programmatic SEO toolkit packaged as an npm library with both a CLI and programmatic API. It turns a seed keyword or entity list into framework-specific pages, sitemaps, schema markup, internal linking data, and optional AI enrichment outputs.
 
-It starts from a seed keyword or an entity list, discovers targets worth publishing, and scaffolds the technical SEO pieces needed to ship pages at scale:
+The package is prepared to publish as `@sophiasuu/sophon` while keeping the CLI command name `sophon`.
 
-- entity discovery
-- per-entity Next.js App Router page generation
-- sitemap and robots generation
-- schema markup scaffolding
-- internal linking data
+It is framework agnostic in its core logic and currently ships generation adapters for:
 
-The core is framework agnostic, but the first output target is Next.js.
+- Next.js
+- Astro
+- Nuxt 3
+- SvelteKit
+- Remix
 
 ## Who This Is For
 
@@ -40,51 +40,57 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 .
 ├── AGENT.md
 ├── README.md
-├── data/
-│   └── entities.json
-├── scripts/
-│   ├── discover.ts
-│   ├── generate.ts
-│   └── technical.ts
-├── types.ts
-└── templates/
-    └── page.tsx
+├── src/
+│   ├── adapters/
+│   ├── cli.ts
+│   ├── core/
+│   ├── index.ts
+│   └── types.ts
+├── package.json
+├── tsconfig.json
+└── tsup.config.ts
 ```
 
 ## Quickstart
 
-### 1. Clone or copy Sophon into your project workspace
-
-Sophon is designed to be integrated into an existing Next.js application using the App Router.
-
-### 2. Ensure you can run TypeScript scripts
-
-One simple option is to install `tsx`:
+### 1. Install dependencies
 
 ```bash
-npm install -D tsx
+npm install
 ```
 
-Then run scripts with:
+To use the published package in another project:
 
 ```bash
-npx tsx scripts/discover.ts --seed "best payroll software"
-npx tsx scripts/generate.ts --output ./app
-npx tsx scripts/technical.ts --site https://example.com --output ./public
+npm install @sophiasuu/sophon
 ```
 
-### 3. Discover entities
+### 2. Build the package
+
+```bash
+npm run build
+```
+
+### 3. Initialize Sophon in a host project
+
+```bash
+npx @sophiasuu/sophon init --framework nextjs
+```
+
+This creates `sophon.config.json` with detected or specified framework defaults.
+
+### 4. Discover entities
 
 From a seed keyword:
 
 ```bash
-npx tsx scripts/discover.ts --seed "best payroll software"
+npx @sophiasuu/sophon discover --seed "best payroll software"
 ```
 
 With custom expansion patterns:
 
 ```bash
-npx tsx scripts/discover.ts \
+npx @sophiasuu/sophon discover \
 	--seed "best payroll software" \
 	--pattern "{seed} alternatives" \
 	--pattern "{seed} pricing" \
@@ -94,10 +100,24 @@ npx tsx scripts/discover.ts \
 From a CSV file:
 
 ```bash
-npx tsx scripts/discover.ts --csv ./input/entities.csv
+npx @sophiasuu/sophon discover --csv ./input/entities.csv
 ```
 
-This writes normalized entities into `data/entities.json`.
+This writes normalized entities into `data/entities.json` by default, or to `--discover-output` when provided.
+
+### 5. Generate pages
+
+```bash
+npx @sophiasuu/sophon generate --framework nextjs
+```
+
+Sophon generates one static page per entity. Output roots by framework default to:
+
+- `nextjs` -> `app/[slug]/page.tsx`
+- `astro` -> `src/pages/[slug].astro`
+- `nuxt` -> `pages/[slug].vue`
+- `sveltekit` -> `src/routes/[slug]/+page.svelte` and `src/routes/[slug]/+page.ts`
+- `remix` -> `app/routes/[slug].tsx`
 
 Notes:
 
@@ -105,33 +125,12 @@ Notes:
 - Extra CSV columns are preserved in `metadata.attributes` so downstream generation can use them.
 - Entity IDs are deterministic and source-agnostic, so the same normalized entity produces the same ID across CSV and seed discovery.
 - Discovery still uses placeholder seed expansion today; provider-backed entity discovery remains the main unfinished capability.
+- For SvelteKit, the companion `+page.ts` file contains the prerenderable entity payload that feeds the generated `+page.svelte` component.
 
-### 4. Generate App Router pages
-
-```bash
-npx tsx scripts/generate.ts --output ./app
-```
-
-This generates one static page per entity at `app/[slug]/page.tsx`.
-
-Each generated page includes:
-
-- entity name and slug
-- SEO title and description from metadata
-- tags and attributes from discovery
-- guardrail comments for grounded AI content
-- explicit TODO sections for intro, FAQ, and comparison content
-
-The generator also logs warnings for:
-
-- YMYL-sensitive entities
-- thin metadata payloads
-- duplicate slugs
-
-### 5. Generate technical SEO assets
+### 6. Generate technical SEO assets
 
 ```bash
-npx tsx scripts/technical.ts --site https://example.com --output ./public
+npx @sophiasuu/sophon technical --site https://example.com
 ```
 
 This produces scaffolds for:
@@ -148,6 +147,54 @@ The technical generator now also:
 - links entities by shared seed keyword and tags rather than array position
 - logs a concrete output summary for every run
 
+### 7. Run the full pipeline
+
+```bash
+npx @sophiasuu/sophon run --seed "best payroll software" --framework nextjs --site https://example.com
+```
+
+Per-step output overrides are supported for the full pipeline:
+
+```bash
+npx @sophiasuu/sophon run \
+	--seed "best payroll software" \
+	--framework sveltekit \
+	--site https://example.com \
+	--discover-output ./data/payroll-entities.json \
+	--generate-output ./src/routes \
+	--technical-output ./static \
+	--enrich-output ./data/enriched
+```
+
+`--output` still works for single-command flows, but `run` should prefer step-specific flags so discovery, generation, technical assets, and enrichment can land in different locations.
+
+## Programmatic API
+
+Sophon also exposes a library API:
+
+```ts
+import { discover, generate, technical, enrich } from "@sophiasuu/sophon";
+
+const result = await discover({ seed: "best payroll software" });
+
+await generate({
+	entities: result.entities,
+	framework: "nextjs",
+	output: "app",
+});
+
+await technical({
+	entities: result.entities,
+	site: "https://example.com",
+	output: "public",
+});
+
+await enrich({
+	entities: result.entities,
+	output: "data/enriched",
+});
+```
+
 ## Claude Code Native
 
 Sophon ships with [AGENT.md](/workspaces/Sophon/AGENT.md), which gives Claude Code an explicit operating playbook so a user can clone this repository and ask Claude Code to run Sophon autonomously inside their own project.
@@ -158,15 +205,41 @@ Typical prompt:
 Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "best employee scheduling software". Discover entities, generate the route scaffold, and wire the technical SEO outputs into this codebase.
 ```
 
+## Publishing
+
+When you are ready to publish:
+
+```bash
+npm pack --dry-run
+npm run build
+npm publish --access public
+```
+
+If you want to verify the package contents first:
+
+```bash
+npm pack --dry-run
+```
+
+Recommended prepublish checklist:
+
+- confirm you are logged into the npm account that owns the `@sophiasuu` scope
+- confirm `npm run typecheck` passes
+- confirm `npm run build` passes
+- inspect the `npm pack --dry-run` file list
+- confirm `ANTHROPIC_API_KEY` is not required for install or basic CLI usage
+- confirm the MIT license in `LICENSE` matches how you want downstream users to consume the package
+
 ## Current Scope
 
 Included in this scaffold:
 
 - entity ingestion via CSV
 - seed-keyword based placeholder discovery
-- per-entity static Next.js page generation
-- technical SEO file generation scaffold
-- shared types in `types.ts`
+- multi-framework page generation via CLI and API
+- technical SEO asset generation
+- shared types in `src/types.ts`
+- AI enrichment entrypoint via the Anthropic SDK
 - clear TODO markers for AI content generation and external data enrichment
 
 Not implemented yet:
@@ -187,7 +260,7 @@ Not implemented yet:
 ## Roadmap
 
 1. Add pluggable entity discovery providers.
-2. Add AI content generation adapters for intro, FAQ, comparison, and metadata sections.
+2. Improve enrichment prompt orchestration and structured output validation.
 3. Replace heuristic schema selection with niche-aware schema presets.
 4. Add review and approval workflows before publishing.
 5. Package Sophon as an installable CLI.

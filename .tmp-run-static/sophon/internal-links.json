@@ -1,0 +1,58 @@
+[
+  {
+    "entity": "best-payroll-software-for-startups",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-alternatives",
+      "best-payroll-software-comparison"
+    ]
+  },
+  {
+    "entity": "best-payroll-software-for-small-business",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-alternatives",
+      "best-payroll-software-comparison"
+    ]
+  },
+  {
+    "entity": "best-payroll-software-for-enterprises",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-alternatives",
+      "best-payroll-software-comparison"
+    ]
+  },
+  {
+    "entity": "best-payroll-software-pricing",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-alternatives",
+      "best-payroll-software-comparison"
+    ]
+  },
+  {
+    "entity": "best-payroll-software-alternatives",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-comparison",
+      "best-payroll-software-for-enterprises"
+    ]
+  },
+  {
+    "entity": "best-best-payroll-software",
+    "relatedEntities": [
+      "best-payroll-software-alternatives",
+      "best-payroll-software-comparison",
+      "best-payroll-software-for-enterprises"
+    ]
+  },
+  {
+    "entity": "best-payroll-software-comparison",
+    "relatedEntities": [
+      "best-best-payroll-software",
+      "best-payroll-software-alternatives",
+      "best-payroll-software-for-enterprises"
+    ]
+  }
+]

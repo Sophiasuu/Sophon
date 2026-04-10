@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "entitiesPath": "data/entities.json",
+  "pagesOutput": "app",
+  "technicalOutput": "public",
+  "enrichOutput": "data/enriched"
+}

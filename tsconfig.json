@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["ES2022"],
     "types": ["node"],
     "strict": true,
@@ -13,5 +12,5 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["scripts/**/*.ts", "templates/**/*.tsx", "types.ts", "sophon.d.ts"]
+  "include": ["src/**/*.ts", "tsup.config.ts"]
 }
