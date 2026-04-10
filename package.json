@@ -1,0 +1,16 @@
+{
+  "name": "sophon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open source pSEO toolkit for generating Next.js SEO surfaces at scale.",
+  "scripts": {
+    "discover": "tsx scripts/discover.ts",
+    "generate": "tsx scripts/generate.ts",
+    "technical": "tsx scripts/technical.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
