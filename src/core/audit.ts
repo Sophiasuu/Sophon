@@ -2,6 +2,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AuditCheck, AuditResult } from "../types";
+import { gradeFromScore } from "./utils";
 
 type AuditOptions = {
   root?: string;
@@ -61,14 +62,6 @@ async function hasPattern(files: string[], pattern: RegExp): Promise<boolean> {
   }
 
   return false;
-}
-
-function gradeFromScore(score: number): string {
-  if (score >= 90) return "A";
-  if (score >= 75) return "B";
-  if (score >= 60) return "C";
-  if (score >= 45) return "D";
-  return "F";
 }
 
 export async function audit(options: AuditOptions = {}): Promise<AuditResult> {

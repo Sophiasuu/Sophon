@@ -118,6 +118,8 @@ declare function technical(options: TechnicalOptions): Promise<void>;
 
 declare function enrich(options: EnrichOptions): Promise<void>;
 
+declare function teach(): Promise<void>;
+
 type AuditOptions = {
     root?: string;
 };
@@ -151,4 +153,8 @@ declare function sveltekit(_options: GenerateOptions): string;
 
 declare function remix(_options: GenerateOptions): string;
 
-export { type AuditCheck, type AuditResult, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EntityRecord, type EntityScore, type Framework, type GenerateOptions, type GenerateSummary, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type ScoreCheck, type ScoreResult, type TechnicalOptions, astro, audit, classifyIntent, discover, enrich, generate, getSections, nextjs, nuxt, propose, remix, renderSections, scoreEntities, sveltekit, technical };
+declare function slugify(value: string): string;
+declare function stableHash(value: string): string;
+declare function gradeFromScore(score: number): string;
+
+export { type AuditCheck, type AuditResult, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EntityRecord, type EntityScore, type Framework, type GenerateOptions, type GenerateSummary, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type ScoreCheck, type ScoreResult, type TechnicalOptions, astro, audit, classifyIntent, discover, enrich, generate, getSections, gradeFromScore, nextjs, nuxt, propose, remix, renderSections, scoreEntities, slugify, stableHash, sveltekit, teach, technical };

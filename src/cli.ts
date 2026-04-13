@@ -13,6 +13,7 @@ import { technical } from "./core/technical";
 import { audit } from "./core/audit";
 import { propose } from "./core/propose";
 import { scoreEntities } from "./core/score";
+import { teach } from "./core/teach";
 import type { DiscoverResult, Framework } from "./types";
 
 type SophonConfig = {
@@ -55,7 +56,7 @@ function parseCli() {
       force: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
-    strict: false,
+    strict: true,
   });
 }
 
@@ -78,8 +79,11 @@ async function readJsonIfExists(filePath: string): Promise<Record<string, unknow
   try {
     const raw = await readFile(filePath, "utf8");
     return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
   }
 }
 
@@ -113,18 +117,24 @@ async function detectFramework(): Promise<Framework | undefined> {
   return undefined;
 }
 
+const VALID_FRAMEWORKS = ["nextjs", "astro", "nuxt", "sveltekit", "remix"];
+
 async function promptFramework(): Promise<Framework> {
   const rl = createInterface({ input, output });
 
   try {
-    const answer = await rl.question("Select a framework (nextjs, astro, nuxt, sveltekit, remix): ");
-    const framework = answer.trim().toLowerCase() as Framework;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const answer = await rl.question("Select a framework (nextjs, astro, nuxt, sveltekit, remix): ");
+      const framework = answer.trim().toLowerCase();
 
-    if (["nextjs", "astro", "nuxt", "sveltekit", "remix"].includes(framework)) {
-      return framework;
+      if (VALID_FRAMEWORKS.includes(framework)) {
+        return framework as Framework;
+      }
+
+      console.log("Invalid framework. Please try again.");
     }
 
-    throw new Error("Unsupported framework selection.");
+    throw new Error("Too many invalid attempts. Use --framework to specify.");
   } finally {
     rl.close();
   }
@@ -338,6 +348,7 @@ function printHelp(): void {
 
 Commands:
   sophon init
+  sophon teach
   sophon discover --seed "keyword" | --csv ./file.csv
   sophon propose --seed "keyword"
   sophon generate --framework nextjs
@@ -370,6 +381,9 @@ async function main(): Promise<void> {
   switch (command) {
     case "init":
       await initCommand(parsed.values);
+      return;
+    case "teach":
+      await teach();
       return;
     case "discover":
       await discoverCommand(parsed.values);

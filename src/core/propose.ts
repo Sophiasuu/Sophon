@@ -1,5 +1,6 @@
 import { DEFAULT_PATTERNS } from "./discover";
 import { classifyIntent } from "./intent";
+import { slugify, stableHash } from "./utils";
 import type {
   ProposedEntity,
   ProposedEntityIntent,
@@ -22,26 +23,6 @@ const EXTRA_PATTERNS = [
   "{seed} template",
   "{seed} implementation",
 ];
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function stableHash(value: string): string {
-  let hash = 2166136261;
-
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
-}
 
 function normalizePatterns(patterns?: string[]): string[] {
   const base = patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;

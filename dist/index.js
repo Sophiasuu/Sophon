@@ -38,19 +38,45 @@ __export(src_exports, {
   enrich: () => enrich,
   generate: () => generate,
   getSections: () => getSections,
+  gradeFromScore: () => gradeFromScore,
   nextjs: () => nextjs,
   nuxt: () => nuxt,
   propose: () => propose,
   remix: () => remix,
   renderSections: () => renderSections,
   scoreEntities: () => scoreEntities,
+  slugify: () => slugify,
+  stableHash: () => stableHash,
   sveltekit: () => sveltekit,
+  teach: () => teach,
   technical: () => technical
 });
 module.exports = __toCommonJS(src_exports);
 
 // src/core/discover.ts
 var import_promises = require("fs/promises");
+
+// src/core/utils.ts
+function slugify(value) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
+}
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const character of value) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
+}
+function gradeFromScore(score) {
+  if (score >= 90) return "A";
+  if (score >= 75) return "B";
+  if (score >= 60) return "C";
+  if (score >= 45) return "D";
+  return "F";
+}
+
+// src/core/discover.ts
 var DEFAULT_PATTERNS = [
   "{seed} for startups",
   "{seed} for small business",
@@ -62,17 +88,6 @@ var DEFAULT_PATTERNS = [
 ];
 function resolvePatterns(patterns) {
   return patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
-}
-function slugify(value) {
-  return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
-}
-function stableHash(value) {
-  let hash = 2166136261;
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
 }
 function buildEntityId(name) {
   return stableHash(slugify(name));
@@ -114,7 +129,33 @@ function dedupeEntities(entities) {
   });
 }
 function parseCsvRow(line) {
-  return line.split(",").map((column) => column.trim()).filter(Boolean);
+  const columns = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  columns.push(current.trim());
+  return columns.filter(Boolean);
 }
 function isHeaderRow(columns) {
   return columns.some((column) => /name|entity|keyword/i.test(column));
@@ -244,27 +285,16 @@ var EXTRA_PATTERNS = [
   "{seed} template",
   "{seed} implementation"
 ];
-function slugify2(value) {
-  return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
-}
-function stableHash2(value) {
-  let hash = 2166136261;
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
-}
 function normalizePatterns(patterns) {
   const base = patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
   return [...base, ...EXTRA_PATTERNS];
 }
 function toProposedEntity(seed, query) {
   const cleanName = query.trim();
-  const slug = slugify2(cleanName);
+  const slug = slugify(cleanName);
   const scored = classifyIntent(cleanName);
   return {
-    id: stableHash2(slug),
+    id: stableHash(slug),
     name: cleanName,
     slug,
     intent: scored.intent,
@@ -752,15 +782,16 @@ function buildHydrationMap(entity) {
   };
 }
 function hydrateTemplate(template, entity, framework) {
-  const jsonReplacements = buildHydrationMap(entity);
   const intent = classifyIntent(entity.name).intent;
   const sections = getSections(intent);
-  let result = Object.entries(jsonReplacements).reduce((content, [placeholder, value]) => {
-    return content.replaceAll(placeholder, value);
-  }, template);
-  result = result.replaceAll("__ENTITY_SECTIONS__", renderSections(framework, sections));
-  result = result.replaceAll("__ENTITY_INTENT__", intent);
-  return result;
+  const replacements = {
+    ...buildHydrationMap(entity),
+    "__ENTITY_SECTIONS__": renderSections(framework, sections),
+    "__ENTITY_INTENT__": intent
+  };
+  return template.replace(/__ENTITY_[A-Z_]+__/g, (match) => {
+    return Object.hasOwn(replacements, match) ? replacements[match] : match;
+  });
 }
 function buildFrameworkTemplate(options, entity) {
   return ADAPTERS[options.framework]({
@@ -1085,13 +1116,121 @@ async function enrich(options) {
   }
 }
 
-// src/core/audit.ts
+// src/core/teach.ts
 var import_promises3 = require("fs/promises");
 var import_node_path4 = __toESM(require("path"));
+var import_promises4 = require("readline/promises");
+var import_node_process = require("process");
+var VALID_FRAMEWORKS = ["nextjs", "astro", "nuxt", "sveltekit", "remix"];
+var VALID_ENTITY_SOURCES = ["seed", "csv", "existing"];
+var VALID_AI_ANSWERS = ["yes", "no", "pending"];
+async function askQuestion(rl, question, validator) {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const answer = (await rl.question(question)).trim();
+    if (!answer) {
+      console.log("Please provide an answer.");
+      continue;
+    }
+    if (validator && !validator(answer)) {
+      console.log("Invalid answer. Please try again.");
+      continue;
+    }
+    return answer;
+  }
+  throw new Error("Too many invalid attempts. Run `sophon teach` again.");
+}
+function formatContext(answers) {
+  return `## Sophon Project Context
+
+- **Niche**: ${answers.niche}
+- **Site URL**: ${answers.siteUrl}
+- **Framework**: ${answers.framework}
+- **Content goal**: ${answers.contentGoal}
+- **Target audience**: ${answers.targetAudience}
+- **Differentiator**: ${answers.differentiator}
+- **Entity source**: ${answers.entitySource}
+- **AI enrichment**: ${answers.aiEnrichment}
+`;
+}
+async function teach() {
+  const rl = (0, import_promises4.createInterface)({ input: import_node_process.stdin, output: import_node_process.stdout });
+  try {
+    console.log("I'll ask a few quick questions so Sophon can work properly with your project.\n");
+    console.log("--- Group 1: Project basics ---\n");
+    const niche = await askQuestion(
+      rl,
+      '1. What is the niche or topic you want to build a programmatic SEO surface for?\n   (e.g. "best payroll software for small teams")\n   > '
+    );
+    const siteUrl = await askQuestion(
+      rl,
+      "\n2. What is your site's base URL? (e.g. https://mysite.com)\n   > ",
+      (answer) => answer.startsWith("http://") || answer.startsWith("https://")
+    );
+    const framework = await askQuestion(
+      rl,
+      `
+3. Which framework does your project use? (${VALID_FRAMEWORKS.join(", ")})
+   > `,
+      (answer) => VALID_FRAMEWORKS.includes(answer.toLowerCase())
+    );
+    console.log("\n--- Group 2: Content strategy ---\n");
+    const contentGoal = await askQuestion(
+      rl,
+      "4. What is the goal of each generated page?\n   (e.g. rank for long-tail keywords, capture leads, drive free trial signups)\n   > "
+    );
+    const targetAudience = await askQuestion(
+      rl,
+      "\n5. Who is your target audience?\n   (e.g. HR managers at SMBs, freelance designers, e-commerce store owners)\n   > "
+    );
+    const differentiator = await askQuestion(
+      rl,
+      "\n6. What makes your offering different from what competitors rank for today?\n   > "
+    );
+    console.log("\n--- Group 3: Technical setup ---\n");
+    const entitySource = await askQuestion(
+      rl,
+      `7. How will you source entities? (${VALID_ENTITY_SOURCES.join(" / ")})
+   - seed: Sophon scaffolds entities from your niche
+   - csv: You provide a file with entity names and attributes
+   - existing: Use existing data/entities.json
+   > `,
+      (answer) => VALID_ENTITY_SOURCES.includes(answer.toLowerCase())
+    );
+    const aiEnrichment = await askQuestion(
+      rl,
+      `
+8. Do you have an ANTHROPIC_API_KEY for AI content enrichment? (${VALID_AI_ANSWERS.join(" / ")})
+   > `,
+      (answer) => VALID_AI_ANSWERS.includes(answer.toLowerCase())
+    );
+    const answers = {
+      niche,
+      siteUrl: siteUrl.replace(/\/$/, ""),
+      framework: framework.toLowerCase(),
+      contentGoal,
+      targetAudience,
+      differentiator,
+      entitySource: entitySource.toLowerCase(),
+      aiEnrichment: aiEnrichment.toLowerCase()
+    };
+    const outputPath = import_node_path4.default.join(process.cwd(), ".sophon.md");
+    await (0, import_promises3.writeFile)(outputPath, formatContext(answers), "utf8");
+    console.log(`
+Context saved to ${outputPath}`);
+    console.log("Next step: use `sophon discover` to find entities, or `sophon run` to execute the full pipeline.");
+  } finally {
+    rl.close();
+  }
+}
+
+// src/core/audit.ts
+var import_promises5 = require("fs/promises");
+var import_node_path5 = __toESM(require("path"));
 var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
 async function exists(filePath) {
   try {
-    await (0, import_promises3.access)(filePath);
+    await (0, import_promises5.access)(filePath);
     return true;
   } catch {
     return false;
@@ -1100,12 +1239,12 @@ async function exists(filePath) {
 async function walkFiles(root) {
   const files = [];
   async function walk(current) {
-    const entries = await (0, import_promises3.readdir)(current, { withFileTypes: true });
+    const entries = await (0, import_promises5.readdir)(current, { withFileTypes: true });
     for (const entry of entries) {
       if (IGNORED_DIRS.has(entry.name)) {
         continue;
       }
-      const fullPath = import_node_path4.default.join(current, entry.name);
+      const fullPath = import_node_path5.default.join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else {
@@ -1122,7 +1261,7 @@ async function hasPattern(files, pattern) {
       continue;
     }
     try {
-      const content = await (0, import_promises3.readFile)(file, "utf8");
+      const content = await (0, import_promises5.readFile)(file, "utf8");
       if (pattern.test(content)) {
         return true;
       }
@@ -1131,26 +1270,19 @@ async function hasPattern(files, pattern) {
   }
   return false;
 }
-function gradeFromScore(score) {
-  if (score >= 90) return "A";
-  if (score >= 75) return "B";
-  if (score >= 60) return "C";
-  if (score >= 45) return "D";
-  return "F";
-}
 async function audit(options = {}) {
   const root = options.root ?? process.cwd();
   const files = await walkFiles(root);
   const checks = [
     {
       label: "Sitemap",
-      implemented: await exists(import_node_path4.default.join(root, "public", "sitemap.xml")) || await exists(import_node_path4.default.join(root, "static", "sitemap.xml")) || await exists(import_node_path4.default.join(root, "sitemap.xml")),
+      implemented: await exists(import_node_path5.default.join(root, "public", "sitemap.xml")) || await exists(import_node_path5.default.join(root, "static", "sitemap.xml")) || await exists(import_node_path5.default.join(root, "sitemap.xml")),
       weight: 15,
       details: "Expected one of: public/sitemap.xml, static/sitemap.xml, sitemap.xml"
     },
     {
       label: "Robots",
-      implemented: await exists(import_node_path4.default.join(root, "public", "robots.txt")) || await exists(import_node_path4.default.join(root, "static", "robots.txt")) || await exists(import_node_path4.default.join(root, "robots.txt")),
+      implemented: await exists(import_node_path5.default.join(root, "public", "robots.txt")) || await exists(import_node_path5.default.join(root, "static", "robots.txt")) || await exists(import_node_path5.default.join(root, "robots.txt")),
       weight: 10,
       details: "Expected one of: public/robots.txt, static/robots.txt, robots.txt"
     },
@@ -1180,7 +1312,7 @@ async function audit(options = {}) {
     },
     {
       label: "404 handling",
-      implemented: await exists(import_node_path4.default.join(root, "app", "not-found.tsx")) || await exists(import_node_path4.default.join(root, "pages", "404.tsx")) || await exists(import_node_path4.default.join(root, "src", "routes", "+error.svelte")),
+      implemented: await exists(import_node_path5.default.join(root, "app", "not-found.tsx")) || await exists(import_node_path5.default.join(root, "pages", "404.tsx")) || await exists(import_node_path5.default.join(root, "src", "routes", "+error.svelte")),
       weight: 5,
       details: "Detected common framework 404 conventions"
     },
@@ -1217,13 +1349,6 @@ SEO score: ${score}/${maxScore} \u2014 ${normalizedScore}/100 (${grade})`);
 }
 
 // src/core/score.ts
-function gradeFromScore2(score) {
-  if (score >= 90) return "A";
-  if (score >= 75) return "B";
-  if (score >= 60) return "C";
-  if (score >= 45) return "D";
-  return "F";
-}
 function scoreEntity(entity) {
   const checks = [];
   let total = 0;
@@ -1254,7 +1379,7 @@ function scoreEntity(entity) {
     slug: entity.slug,
     name: entity.name,
     score: total,
-    grade: gradeFromScore2(total),
+    grade: gradeFromScore(total),
     checks
   };
 }
@@ -1264,7 +1389,7 @@ function scoreEntities(entities) {
   return {
     entityCount: scored.length,
     averageScore: avg,
-    averageGrade: gradeFromScore2(avg),
+    averageGrade: gradeFromScore(avg),
     entities: scored
   };
 }
@@ -1278,13 +1403,17 @@ function scoreEntities(entities) {
   enrich,
   generate,
   getSections,
+  gradeFromScore,
   nextjs,
   nuxt,
   propose,
   remix,
   renderSections,
   scoreEntities,
+  slugify,
+  stableHash,
   sveltekit,
+  teach,
   technical
 });
 //# sourceMappingURL=index.js.map

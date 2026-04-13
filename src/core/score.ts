@@ -1,13 +1,6 @@
 import { classifyIntent } from "./intent";
+import { gradeFromScore } from "./utils";
 import type { EntityRecord, EntityScore, ScoreCheck, ScoreResult } from "../types";
-
-function gradeFromScore(score: number): string {
-  if (score >= 90) return "A";
-  if (score >= 75) return "B";
-  if (score >= 60) return "C";
-  if (score >= 45) return "D";
-  return "F";
-}
 
 function scoreEntity(entity: EntityRecord): EntityScore {
   const checks: ScoreCheck[] = [];

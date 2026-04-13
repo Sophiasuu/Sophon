@@ -118,18 +118,18 @@ function buildHydrationMap(entity: EntityRecord): Record<string, string> {
 }
 
 function hydrateTemplate(template: string, entity: EntityRecord, framework: Framework): string {
-  const jsonReplacements = buildHydrationMap(entity);
   const intent = classifyIntent(entity.name).intent;
   const sections = getSections(intent);
 
-  let result = Object.entries(jsonReplacements).reduce((content, [placeholder, value]) => {
-    return content.replaceAll(placeholder, value);
-  }, template);
+  const replacements: Record<string, string> = {
+    ...buildHydrationMap(entity),
+    "__ENTITY_SECTIONS__": renderSections(framework, sections),
+    "__ENTITY_INTENT__": intent,
+  };
 
-  result = result.replaceAll("__ENTITY_SECTIONS__", renderSections(framework, sections));
-  result = result.replaceAll("__ENTITY_INTENT__", intent);
-
-  return result;
+  return template.replace(/__ENTITY_[A-Z_]+__/g, (match) => {
+    return Object.hasOwn(replacements, match) ? replacements[match] : match;
+  });
 }
 
 function buildFrameworkTemplate(options: GenerateOptions, entity: EntityRecord): string {

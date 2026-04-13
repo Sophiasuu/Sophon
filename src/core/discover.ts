@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import type { DiscoverMode, DiscoverOptions, DiscoverResult, EntityRecord } from "../types";
+import { slugify, stableHash } from "./utils";
 
 export const DEFAULT_PATTERNS = [
   "{seed} for startups",
@@ -14,26 +15,6 @@ export const DEFAULT_PATTERNS = [
 
 function resolvePatterns(patterns?: string[]): string[] {
   return patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function stableHash(value: string): string {
-  let hash = 2166136261;
-
-  for (const character of value) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function buildEntityId(name: string): string {
@@ -97,10 +78,36 @@ function dedupeEntities(entities: EntityRecord[]): EntityRecord[] {
 }
 
 function parseCsvRow(line: string): string[] {
-  return line
-    .split(",")
-    .map((column) => column.trim())
-    .filter(Boolean);
+  const columns: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  columns.push(current.trim());
+  return columns.filter(Boolean);
 }
 
 function isHeaderRow(columns: string[]): boolean {

@@ -3,6 +3,7 @@ export { propose } from "./core/propose";
 export { generate } from "./core/generate";
 export { technical } from "./core/technical";
 export { enrich } from "./core/enrich";
+export { teach } from "./core/teach";
 export { audit } from "./core/audit";
 export { classifyIntent } from "./core/intent";
 export { getSections, renderSections } from "./core/sections";
@@ -34,3 +35,4 @@ export type {
   DiscoverMode,
 } from "./types";
 export { DEFAULT_PATTERNS } from "./core/discover";
+export { slugify, stableHash, gradeFromScore } from "./core/utils";
