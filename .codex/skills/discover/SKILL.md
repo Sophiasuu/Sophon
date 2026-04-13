@@ -26,7 +26,7 @@ Invoke the `sophon` skill first. It contains the entity model, adapter map, oper
 | `--pattern <template>` | Custom expansion pattern (repeatable) |
 | `--discover-output <path>` | Override default `data/entities.json` output |
 
-When both `--seed` and `--csv` are provided, the CSV is the source of truth. The seed is used as enrichment context only.
+When both `--seed` and `--csv` are provided, CSV is used and seed input is ignored.
 
 ## Execution
 

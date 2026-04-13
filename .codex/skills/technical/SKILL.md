@@ -30,8 +30,8 @@ npx @sophonn/sophon technical --site https://example.com --technical-output ./st
 
 | Asset | Default path |
 |-------|-------------|
-| Sitemap | `sitemap.xml` |
-| Robots | `robots.txt` |
+| Sitemap | `public/sitemap.xml` |
+| Robots | `public/robots.txt` |
 | Schema records | `public/sophon/schema.json` |
 | Internal link graph | `public/sophon/internal-links.json` |
 | Hreflang scaffold | `public/sophon/hreflang.txt` |

@@ -84,15 +84,16 @@ Then confirm:
 Every Sophon workflow starts with **entities** — normalized records that represent the subjects of generated pages.
 
 ```ts
-type Entity = {
-  id: string;          // deterministic, source-agnostic slug hash
-  name: string;        // display name
-  slug: string;        // URL-safe identifier
-  seed: string;        // originating keyword or niche
-  tags: string[];      // topic tags used for internal linking
-  seoTitle: string;
-  metaDescription: string;
+type EntityRecord = {
+  id: string;              // deterministic, source-agnostic slug hash
+  name: string;            // display name
+  slug: string;            // URL-safe identifier
+  source: "csv" | "seed";
+  seedKeyword?: string;    // originating niche when discovered from seed
   metadata: {
+    title?: string;
+    description?: string;
+    tags?: string[];       // used for internal linking scores
     attributes: Record<string, string>; // CSV columns or enrichment data
   };
 };

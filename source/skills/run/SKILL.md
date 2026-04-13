@@ -65,7 +65,7 @@ The pipeline is complete when:
 
 - `data/entities.json` (or `--discover-output`) contains normalized entities
 - Framework-appropriate static pages exist for each entity
-- `sitemap.xml`, `robots.txt`, `public/sophon/schema.json`, and `public/sophon/internal-links.json` are generated
+- `sitemap.xml`, `robots.txt`, `public/sophon/schema.json`, `public/sophon/internal-links.json`, and `public/sophon/hreflang.txt` are generated
 - All `// TODO` sections are visible in generated output for team review
 - Generation warnings and output summaries are logged clearly
 
