@@ -20,26 +20,26 @@ Framework adapters:
 
 ## Who This Is For
 
-### Indie hackers
+### Indie hackers 🚀
 
 Go from a niche keyword to dozens of long-tail landing pages without building a custom pipeline from scratch.
 
-### Agencies
+### Agencies 🤝
 
 Standardize pSEO execution across client projects with a repeatable discovery-to-publish workflow.
 
-### Enterprise teams
+### Enterprise teams 🏢
 
 Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keeping routing, data, and review workflows inside your existing codebase.
 
-## Core Workflow
+## Core Workflow ⚙️
 
-1. **Discover** — normalize entities from a CSV or seed keyword into `data/entities.json`
-2. **Generate** — scaffold one page per entity with OG/Twitter cards, canonical, and YMYL warnings baked in
-3. **Technical** — emit `sitemap.xml`, `robots.txt`, JSON-LD schema, internal link graph, and hreflang scaffold
-4. **Enrich** — use Claude to fill TODO sections with grounded, structured content
+1. **Discover 🔎** — normalize entities from a CSV or seed keyword into `data/entities.json`
+2. **Generate 🧱** — scaffold one page per entity with OG/Twitter cards, canonical, and YMYL warnings baked in
+3. **Technical 🛠️** — emit `sitemap.xml`, `robots.txt`, JSON-LD schema, internal link graph, and hreflang scaffold
+4. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content
 
-## Repository Structure
+## Repository Structure 📁
 
 ```text
 .
@@ -57,19 +57,19 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 └── tsup.config.ts
 ```
 
-## Quickstart
+## Quickstart ⚡
 
-### 1. Install
+### 1. Install 📦
 
 ```bash
 npm install @sophonn/sophon
 ```
 
-### 2. Run the onboarding interview
+### 2. Run the onboarding interview 🧠
 
 Ask your AI agent to run `sophon teach`. It will walk through three groups of questions — project basics, content strategy, technical setup — and save answers to `.sophon.md`. Every skill references this file before running.
 
-### 3. Discover entities
+### 3. Discover entities 🔍
 
 From a seed keyword:
 
@@ -95,7 +95,7 @@ npx @sophonn/sophon discover --csv ./input/entities.csv
 
 Writes normalized entities to `data/entities.json` by default. Extra CSV columns are preserved in `metadata.attributes` for downstream use.
 
-### 4. Generate pages
+### 4. Generate pages 🧩
 
 ```bash
 npx @sophonn/sophon generate --framework nextjs
@@ -103,11 +103,11 @@ npx @sophonn/sophon generate --framework nextjs
 
 One file per entity. Duplicate slugs are skipped with a warning. Pages with YMYL keywords (health, legal, financial) get editorial warnings. Thin pages are flagged as TODOs. All pages include:
 
-- OG and Twitter card meta tags
-- Canonical URL
-- Generated comment block reminding editors not to invent facts
+- OG and Twitter card meta tags 🏷️
+- Canonical URL 🔗
+- Generated comment block reminding editors not to invent facts 📝
 
-### 5. Generate technical SEO assets
+### 5. Generate technical SEO assets 🗺️
 
 ```bash
 npx @sophonn/sophon technical --site https://example.com
@@ -123,7 +123,7 @@ Outputs:
 | `public/sophon/internal-links.json` | Related entity pairs scored by shared tags and seed keyword |
 | `public/sophon/hreflang.txt` | `<link rel="alternate">` scaffold — wire into your framework manually |
 
-### 6. Enrich with AI
+### 6. Enrich with AI 🤖
 
 ```bash
 npx @sophonn/sophon enrich
@@ -131,7 +131,7 @@ npx @sophonn/sophon enrich
 
 Requires `ANTHROPIC_API_KEY`. Calls Claude to generate structured content per entity: intro, sections, FAQs, comparisons. Uses TODO markers instead of invented content when data is missing. Writes one JSON file per entity to `data/enriched/`.
 
-### 7. Run the full pipeline
+### 7. Run the full pipeline 🏁
 
 ```bash
 npx @sophonn/sophon run --seed "best payroll software" --framework nextjs --site https://example.com
@@ -150,7 +150,7 @@ npx @sophonn/sophon run \
   --enrich-output ./data/enriched
 ```
 
-## Programmatic API
+## Programmatic API 🧪
 
 ```ts
 import { discover, generate, technical, enrich } from "@sophonn/sophon";
@@ -175,14 +175,14 @@ await enrich({
 });
 ```
 
-## Agent Skills
+## Agent Skills 🤖
 
 Sophon ships a multi-provider agent skill system. Skills are defined once in `source/skills/` and distributed to:
 
-- `.claude/` — Claude Code
-- `.agents/` — VS Code Copilot agent mode
-- `.cursor/` — Cursor
-- `.codex/` — Codex CLI
+- `.claude/` — Claude Code 💬
+- `.agents/` — VS Code Copilot agent mode 🧭
+- `.cursor/` — Cursor 🖱️
+- `.codex/` — Codex CLI ⌨️
 
 Six skills: `sophon` (master context + `teach`), `discover`, `generate`, `technical`, `enrich`, `run`.
 
@@ -194,9 +194,9 @@ Typical prompt:
 Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "best employee scheduling software". Discover entities, generate the route scaffold, and wire the technical SEO outputs into this codebase.
 ```
 
-## Current Scope
+## Current Scope 📌
 
-**What Sophon does:**
+**What Sophon does ✅:**
 
 - Entity ingestion from CSV or seed keyword
 - Multi-framework page scaffolding (Next.js, Astro, Nuxt 3, SvelteKit, Remix)
@@ -213,7 +213,7 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - `sophon teach` onboarding flow that writes project context to `.sophon.md`
 - Multi-provider agent skill system (Claude, Cursor, Codex, VS Code)
 
-**What Sophon does not do:**
+**What Sophon does not do ❌:**
 
 - OG image generation or responsive image handling
 - Actual hreflang implementation (scaffold only — wire it yourself)
@@ -227,14 +227,14 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - Content freshness management or scheduled re-enrichment
 - A/B testing or variant generation
 
-## Design Principles
+## Design Principles 🧭
 
-- Framework agnostic core, Next.js first output
-- Minimal config to get started
-- Agent-native workflow
-- Built for scale across hundreds or thousands of pages
+- Framework agnostic core, Next.js first output 🧩
+- Minimal config to get started 🪶
+- Agent-native workflow 🤖
+- Built for scale across hundreds or thousands of pages 📈
 
-## Roadmap
+## Roadmap 🛣️
 
 1. Pluggable entity discovery providers (SERP APIs, AI expansion)
 2. OG image generation per entity
