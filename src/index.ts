@@ -4,6 +4,9 @@ export { generate } from "./core/generate";
 export { technical } from "./core/technical";
 export { enrich } from "./core/enrich";
 export { audit } from "./core/audit";
+export { classifyIntent } from "./core/intent";
+export { getSections, renderSections } from "./core/sections";
+export { scoreEntities } from "./core/score";
 export { nextjs } from "./adapters/nextjs";
 export { astro } from "./adapters/astro";
 export { nuxt } from "./adapters/nuxt";
@@ -22,6 +25,11 @@ export type {
   TechnicalOptions,
   EnrichOptions,
   GenerateSummary,
+  ScoreCheck,
+  EntityScore,
+  ScoreResult,
+  AuditCheck,
+  AuditResult,
   Framework,
   DiscoverMode,
 } from "./types";

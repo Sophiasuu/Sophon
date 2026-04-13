@@ -38,20 +38,9 @@ export function sveltekit(_options: GenerateOptions): string {
   <h1>{data.entity.title}</h1>
   <p>{data.entity.description}</p>
 
-  <section>
-    <h2>TODO: Intro paragraph</h2>
-    <p>Replace with grounded introductory content for {data.entity.name}.</p>
-  </section>
+  <!-- Sophon intent: __ENTITY_INTENT__ -->
 
-  <section>
-    <h2>TODO: FAQ section</h2>
-    <p>Add sourced FAQ content before publishing.</p>
-  </section>
-
-  <section>
-    <h2>TODO: Comparison section</h2>
-    <p>Add evidence-based comparisons only after validating claims.</p>
-  </section>
+__ENTITY_SECTIONS__
 
   <pre>{JSON.stringify({ tags: data.entity.tags, attributes: data.entity.attributes }, null, 2)}</pre>
 </main>

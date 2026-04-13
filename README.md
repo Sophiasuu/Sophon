@@ -35,9 +35,12 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 ## Core Workflow ⚙️
 
 1. **Discover 🔎** — normalize entities from a CSV or seed keyword into `data/entities.json`
-2. **Generate 🧱** — scaffold one page per entity with OG/Twitter cards, canonical, and YMYL warnings baked in
-3. **Technical 🛠️** — emit `sitemap.xml`, `robots.txt`, JSON-LD schema, internal link graph, and hreflang scaffold
-4. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content
+2. **Propose 🧭** — generate intent-aware entity suggestions with priority, confidence, and action recommendations
+3. **Generate 🧱** — scaffold one page per entity with **intent-specific sections**, OG/Twitter cards, canonical, and YMYL warnings baked in
+4. **Technical 🛠️** — emit `sitemap.xml`, `robots.txt`, JSON-LD schema, internal link graph, and hreflang scaffold
+5. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content
+6. **Score 📊** — check entity health (metadata completeness, intent confidence, slug quality) with A-F grades
+7. **Audit ✅** — scan existing SEO implementation and get a weighted score with letter grade
 
 ## Repository Structure 📁
 
@@ -111,7 +114,18 @@ Use `--limit` to cap the list size and `--propose-output` to customize output pa
 npx @sophonn/sophon generate --framework nextjs
 ```
 
-One file per entity. Duplicate slugs are skipped with a warning. Pages with YMYL keywords (health, legal, financial) get editorial warnings. Thin pages are flagged as TODOs. All pages include:
+One file per entity. Duplicate slugs are skipped with a warning. Pages with YMYL keywords (health, legal, financial) get editorial warnings. Thin pages are flagged as TODOs.
+
+**Intent-aware page layouts** 🧠 — Sophon detects entity intent from its name and generates different TODO section scaffolds:
+
+| Intent | Detected by | Sections generated |
+|--------|-------------|-------------------|
+| Commercial | pricing, cost, plans, buy | Pricing Overview → Key Features → Who Is This For? → Get Started |
+| Comparison | alternatives, vs, compare | Side-by-Side Comparison → Pros & Cons → Best For → Verdict |
+| Segmented | for startups, for agencies | Pain Points → Tailored Use Cases → Success Stories → Next Steps |
+| Informational | what is, how to, guide | What You Need to Know → Step-by-Step Guide → FAQ → Related Resources |
+
+All pages include:
 
 - OG and Twitter card meta tags 🏷️
 - Canonical URL 🔗
@@ -166,7 +180,28 @@ npx @sophonn/sophon run \
 npx @sophonn/sophon audit
 ```
 
-This checks common SEO implementations (sitemap, robots, canonical tags, OG/Twitter cards, schema, redirects, 404 handling) and reports what is already in place versus missing.
+Checks 8 SEO implementations with weighted scoring:
+
+| Check | Weight |
+|-------|--------|
+| Canonical tags | 20 |
+| Sitemap | 15 |
+| Open Graph tags | 15 |
+| Structured data (JSON-LD) | 15 |
+| Robots.txt | 10 |
+| Twitter cards | 10 |
+| Redirect handling | 10 |
+| 404 handling | 5 |
+
+Reports a normalized 0-100 score with letter grade (A/B/C/D/F).
+
+### 9. Score entity health 📊
+
+```bash
+npx @sophonn/sophon score
+```
+
+Evaluates each entity across 7 checks (title, description, tags, attributes, slug quality, intent confidence, name specificity) and assigns a score out of 100 with a letter grade. Low-scoring entities are flagged for attention. Writes results to `data/scores.json`.
 
 ### Safeproof behavior (skip if already implemented) 🛡️
 
@@ -182,7 +217,16 @@ npx @sophonn/sophon technical --site https://example.com --force
 ## Programmatic API 🧪
 
 ```ts
-import { discover, propose, generate, technical, enrich } from "@sophonn/sophon";
+import {
+  discover,
+  propose,
+  generate,
+  technical,
+  enrich,
+  audit,
+  scoreEntities,
+  classifyIntent,
+} from "@sophonn/sophon";
 
 const proposed = propose({ seed: "best payroll software", limit: 30 });
 
@@ -204,6 +248,15 @@ await enrich({
   entities: result.entities,
   output: "data/enriched",
 });
+
+const auditResult = await audit();
+// auditResult.score, auditResult.grade, auditResult.checks
+
+const scores = scoreEntities(result.entities);
+// scores.averageScore, scores.averageGrade, scores.entities
+
+const intent = classifyIntent("best payroll software pricing");
+// intent.intent → "commercial", intent.confidence → 0.9
 ```
 
 ## Agent Skills 🤖
@@ -230,7 +283,9 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 **What Sophon does ✅:**
 
 - Entity ingestion from CSV or seed keyword
+- Intent-aware entity proposal with priority and confidence scoring
 - Multi-framework page scaffolding (Next.js, Astro, Nuxt 3, SvelteKit, Remix)
+- **Intent-aware page layouts** — different TODO sections per intent (commercial, comparison, segmented, informational)
 - OG + Twitter card meta tags on every generated page
 - Canonical URL per page
 - YMYL detection with editorial warnings
@@ -241,6 +296,9 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - Internal link graph scored by shared tags and seed keyword
 - Hreflang scaffold for multilingual setups
 - AI content enrichment via Claude (no-hallucination prompt, TODO markers for missing data)
+- **Weighted SEO audit** with 0-100 score and A-F grade
+- **Entity health scoring** (metadata completeness, intent confidence, slug quality)
+- Shared intent classification engine reusable via programmatic API
 - `sophon teach` onboarding flow that writes project context to `.sophon.md`
 - Multi-provider agent skill system (Claude, Cursor, Codex, VS Code)
 
@@ -284,5 +342,7 @@ These capabilities are intentionally out of scope today and planned for upcoming
 2. OG image generation per entity
 3. Niche-aware schema presets replacing heuristic inference
 4. Review and approval workflow before publishing
-5. Content freshness management and scheduled re-enrichment
+5. Content freshness management and scheduled re-enrichment (`sophon refresh`)
 6. CMS connector (Contentful, Sanity)
+7. Learning loop — GSC/GA4 data feedback for entity prioritization
+8. A/B testing and variant generation per intent

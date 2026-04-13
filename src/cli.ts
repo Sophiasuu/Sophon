@@ -12,6 +12,7 @@ import { generate, writeGeneratedFile } from "./core/generate";
 import { technical } from "./core/technical";
 import { audit } from "./core/audit";
 import { propose } from "./core/propose";
+import { scoreEntities } from "./core/score";
 import type { DiscoverResult, Framework } from "./types";
 
 type SophonConfig = {
@@ -308,6 +309,30 @@ async function auditCommand(): Promise<void> {
   await audit();
 }
 
+async function scoreCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+
+  const result = scoreEntities(payload.entities);
+
+  const outputPath = asString(values.output) ?? path.join("data", "scores.json");
+  await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, {
+    force: Boolean(values.force),
+  });
+
+  console.log(`Entity health score: ${result.averageScore}/100 (${result.averageGrade})`);
+  console.log(`Scored ${result.entityCount} entities`);
+
+  const lowScoring = result.entities.filter((e) => e.score < 60);
+  if (lowScoring.length > 0) {
+    console.log(`\nEntities needing attention (${lowScoring.length}):`);
+    for (const entity of lowScoring.slice(0, 10)) {
+      console.log(`  ${entity.slug}: ${entity.score}/100 (${entity.grade})`);
+    }
+  }
+}
+
 function printHelp(): void {
   console.log(`sophon <command>
 
@@ -320,6 +345,7 @@ Commands:
   sophon enrich
   sophon run --seed "keyword" --framework nextjs --site https://example.com
   sophon audit
+  sophon score
 
 Common flags:
   --entities <path>
@@ -365,6 +391,9 @@ async function main(): Promise<void> {
       return;
     case "audit":
       await auditCommand();
+      return;
+    case "score":
+      await scoreCommand(parsed.values);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

@@ -92,3 +92,39 @@ export type GenerateSummary = {
   warnings: string[];
   todos: number;
 };
+
+export type ScoreCheck = {
+  label: string;
+  points: number;
+  maxPoints: number;
+  passed: boolean;
+};
+
+export type EntityScore = {
+  slug: string;
+  name: string;
+  score: number;
+  grade: string;
+  checks: ScoreCheck[];
+};
+
+export type ScoreResult = {
+  entityCount: number;
+  averageScore: number;
+  averageGrade: string;
+  entities: EntityScore[];
+};
+
+export type AuditCheck = {
+  label: string;
+  implemented: boolean;
+  weight: number;
+  details?: string;
+};
+
+export type AuditResult = {
+  score: number;
+  maxScore: number;
+  grade: string;
+  checks: AuditCheck[];
+};

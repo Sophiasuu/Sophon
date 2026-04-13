@@ -38,18 +38,8 @@ const entity = {
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
-      <section>
-        <h2>TODO: Intro paragraph</h2>
-        <p>Replace with grounded introductory content for {entity.name}.</p>
-      </section>
-      <section>
-        <h2>TODO: FAQ section</h2>
-        <p>Add sourced FAQ content before publishing.</p>
-      </section>
-      <section>
-        <h2>TODO: Comparison section</h2>
-        <p>Add evidence-based comparisons only after validating claims.</p>
-      </section>
+      <!-- Sophon intent: __ENTITY_INTENT__ -->
+__ENTITY_SECTIONS__
       <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
     </main>
   </body>

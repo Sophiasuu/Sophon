@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // src/cli.ts
-import { readFile as readFile3 } from "fs/promises";
-import path4 from "path";
+import { readFile as readFile4 } from "fs/promises";
+import path5 from "path";
 import { createInterface } from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { parseArgs } from "util";
@@ -167,23 +167,23 @@ const entity = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{entity.title}</title>
     <meta name="description" content={entity.description} />
+    <link rel="canonical" href={\`/\${entity.slug}\`} />
+    <!-- Open Graph -->
+    <meta property="og:title" content={entity.title} />
+    <meta property="og:description" content={entity.description} />
+    <meta property="og:url" content={\`/\${entity.slug}\`} />
+    <meta property="og:type" content="website" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={entity.title} />
+    <meta name="twitter:description" content={entity.description} />
   </head>
   <body>
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
-      <section>
-        <h2>TODO: Intro paragraph</h2>
-        <p>Replace with grounded introductory content for {entity.name}.</p>
-      </section>
-      <section>
-        <h2>TODO: FAQ section</h2>
-        <p>Add sourced FAQ content before publishing.</p>
-      </section>
-      <section>
-        <h2>TODO: Comparison section</h2>
-        <p>Add evidence-based comparisons only after validating claims.</p>
-      </section>
+      <!-- Sophon intent: __ENTITY_INTENT__ -->
+__ENTITY_SECTIONS__
       <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
     </main>
   </body>
@@ -215,6 +215,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/" + entity.slug,
   },
+  openGraph: {
+    title: entity.title,
+    description: entity.description,
+    url: "/" + entity.slug,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: entity.title,
+    description: entity.description,
+  },
 };
 
 export const dynamic = "force-static";
@@ -223,27 +234,14 @@ export default function SophonPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-16">
       <section className="space-y-4">
-        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">Sophon generated page</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">Sophon generated page \xB7 __ENTITY_INTENT__ intent</p>
         <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">{entity.title}</h1>
         <p className="max-w-3xl text-base leading-7 text-neutral-700">{entity.description}</p>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <article className="space-y-8 rounded-3xl border border-neutral-200 p-8">
-          <section className="space-y-3 rounded-3xl bg-amber-50 p-6">
-            <h2 className="text-xl font-medium text-neutral-950">TODO: Intro paragraph</h2>
-            <p className="text-neutral-700">Replace with grounded introductory content for {entity.name}.</p>
-          </section>
-
-          <section className="space-y-3 rounded-3xl bg-amber-50 p-6">
-            <h2 className="text-xl font-medium text-neutral-950">TODO: FAQ section</h2>
-            <p className="text-neutral-700">Add sourced FAQ content before publishing.</p>
-          </section>
-
-          <section className="space-y-3 rounded-3xl bg-amber-50 p-6">
-            <h2 className="text-xl font-medium text-neutral-950">TODO: Comparison section</h2>
-            <p className="text-neutral-700">Add evidence-based comparisons only after validating claims.</p>
-          </section>
+__ENTITY_SECTIONS__
         </article>
 
         <aside className="space-y-6 rounded-3xl bg-neutral-50 p-8">
@@ -287,7 +285,16 @@ definePageMeta({
 
 useHead({
   title: entity.title,
-  meta: [{ name: "description", content: entity.description }],
+  meta: [
+    { name: "description", content: entity.description },
+    { property: "og:title", content: entity.title },
+    { property: "og:description", content: entity.description },
+    { property: "og:url", content: "/" + entity.slug },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: entity.title },
+    { name: "twitter:description", content: entity.description },
+  ],
   link: [{ rel: "canonical", href: "/" + entity.slug }],
 });
 </script>
@@ -296,18 +303,8 @@ useHead({
   <main>
     <h1>{{ entity.title }}</h1>
     <p>{{ entity.description }}</p>
-    <section>
-      <h2>TODO: Intro paragraph</h2>
-      <p>Replace with grounded introductory content for {{ entity.name }}.</p>
-    </section>
-    <section>
-      <h2>TODO: FAQ section</h2>
-      <p>Add sourced FAQ content before publishing.</p>
-    </section>
-    <section>
-      <h2>TODO: Comparison section</h2>
-      <p>Add evidence-based comparisons only after validating claims.</p>
-    </section>
+    <!-- Sophon intent: __ENTITY_INTENT__ -->
+__ENTITY_SECTIONS__
     <pre>{{ JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2) }}</pre>
   </main>
 </template>
@@ -337,6 +334,13 @@ export const meta: MetaFunction = () => {
     { title: entity.title },
     { name: "description", content: entity.description },
     { tagName: "link", rel: "canonical", href: "/" + entity.slug },
+    { property: "og:title", content: entity.title },
+    { property: "og:description", content: entity.description },
+    { property: "og:url", content: "/" + entity.slug },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: entity.title },
+    { name: "twitter:description", content: entity.description },
   ];
 };
 
@@ -345,18 +349,8 @@ export default function SophonPage() {
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
-      <section>
-        <h2>TODO: Intro paragraph</h2>
-        <p>Replace with grounded introductory content for {entity.name}.</p>
-      </section>
-      <section>
-        <h2>TODO: FAQ section</h2>
-        <p>Add sourced FAQ content before publishing.</p>
-      </section>
-      <section>
-        <h2>TODO: Comparison section</h2>
-        <p>Add evidence-based comparisons only after validating claims.</p>
-      </section>
+      {/* Sophon intent: __ENTITY_INTENT__ */}
+__ENTITY_SECTIONS__
       <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
     </main>
   );
@@ -408,30 +402,148 @@ function sveltekit(_options) {
 <svelte:head>
   <title>{data.entity.title}</title>
   <meta name="description" content={data.entity.description} />
+  <link rel="canonical" href={\`/\${data.entity.slug}\`} />
+  <!-- Open Graph -->
+  <meta property="og:title" content={data.entity.title} />
+  <meta property="og:description" content={data.entity.description} />
+  <meta property="og:url" content={\`/\${data.entity.slug}\`} />
+  <meta property="og:type" content="website" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={data.entity.title} />
+  <meta name="twitter:description" content={data.entity.description} />
 </svelte:head>
 
 <main>
   <h1>{data.entity.title}</h1>
   <p>{data.entity.description}</p>
 
-  <section>
-    <h2>TODO: Intro paragraph</h2>
-    <p>Replace with grounded introductory content for {data.entity.name}.</p>
-  </section>
+  <!-- Sophon intent: __ENTITY_INTENT__ -->
 
-  <section>
-    <h2>TODO: FAQ section</h2>
-    <p>Add sourced FAQ content before publishing.</p>
-  </section>
-
-  <section>
-    <h2>TODO: Comparison section</h2>
-    <p>Add evidence-based comparisons only after validating claims.</p>
-  </section>
+__ENTITY_SECTIONS__
 
   <pre>{JSON.stringify({ tags: data.entity.tags, attributes: data.entity.attributes }, null, 2)}</pre>
 </main>
 `;
+}
+
+// src/core/intent.ts
+var INTENT_RULES = [
+  {
+    intent: "commercial",
+    pattern: /pricing|cost|price|plans|quote|buy|purchase/i,
+    priority: 92,
+    confidence: 0.9,
+    reason: "Strong buying-intent modifier detected."
+  },
+  {
+    intent: "comparison",
+    pattern: /alternatives|comparison|vs\b|compare|versus/i,
+    priority: 88,
+    confidence: 0.86,
+    reason: "Evaluation-intent modifier detected."
+  },
+  {
+    intent: "segmented",
+    pattern: /for startups|for small business|for enterprises|for agencies|for ecommerce|for teams/i,
+    priority: 80,
+    confidence: 0.82,
+    reason: "Audience-segment modifier detected."
+  },
+  {
+    intent: "informational",
+    pattern: /what is|how to|guide|checklist|template|tutorial|examples/i,
+    priority: 70,
+    confidence: 0.75,
+    reason: "Top-of-funnel informational modifier detected."
+  }
+];
+function classifyIntent(name) {
+  for (const rule of INTENT_RULES) {
+    if (rule.pattern.test(name)) {
+      return {
+        intent: rule.intent,
+        priority: rule.priority,
+        confidence: rule.confidence,
+        reason: rule.reason,
+        action: rule.priority >= 85 ? "keep" : "review"
+      };
+    }
+  }
+  return {
+    intent: "informational",
+    priority: 65,
+    confidence: 0.68,
+    reason: "No explicit high-intent modifier detected; keep for topical coverage.",
+    action: "review"
+  };
+}
+
+// src/core/sections.ts
+var COMMERCIAL_SECTIONS = [
+  { heading: "Pricing Overview", placeholder: "Add verified pricing tiers, plans, and costs. Do not invent prices." },
+  { heading: "Key Features", placeholder: "List core features with factual descriptions. Link to official sources." },
+  { heading: "Who Is This For?", placeholder: "Describe the ideal customer profile and primary use cases." },
+  { heading: "Get Started", placeholder: "Add a clear call-to-action: free trial, demo request, or signup link." }
+];
+var COMPARISON_SECTIONS = [
+  { heading: "Side-by-Side Comparison", placeholder: "Build a factual comparison table. Only include verified differences." },
+  { heading: "Pros & Cons", placeholder: "List evidence-based advantages and disadvantages for each option." },
+  { heading: "Best For", placeholder: "Recommend which option suits which audience or use case." },
+  { heading: "Verdict", placeholder: "Provide an objective summary. Do not make unsupported claims." }
+];
+var SEGMENTED_SECTIONS = [
+  { heading: "Pain Points", placeholder: "Describe the specific challenges this audience faces." },
+  { heading: "Tailored Use Cases", placeholder: "Show how the solution addresses this segment's specific needs." },
+  { heading: "Success Stories", placeholder: "Add real case studies or testimonials. Do not fabricate quotes." },
+  { heading: "Next Steps", placeholder: "Provide a segment-specific call-to-action." }
+];
+var INFORMATIONAL_SECTIONS = [
+  { heading: "What You Need to Know", placeholder: "Write a comprehensive introduction to the topic." },
+  { heading: "Step-by-Step Guide", placeholder: "Break down the process into clear, actionable steps." },
+  { heading: "Frequently Asked Questions", placeholder: "Add sourced FAQ content. Validate all answers." },
+  { heading: "Related Resources", placeholder: "Link to authoritative external and internal resources." }
+];
+var SECTIONS_BY_INTENT = {
+  commercial: COMMERCIAL_SECTIONS,
+  comparison: COMPARISON_SECTIONS,
+  segmented: SEGMENTED_SECTIONS,
+  informational: INFORMATIONAL_SECTIONS
+};
+function getSections(intent) {
+  return SECTIONS_BY_INTENT[intent];
+}
+function renderWithIndent(sections, indent, gap, tailwind) {
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  if (tailwind) {
+    return sections.map(
+      (s) => `${pad}<section className="space-y-3 rounded-3xl bg-amber-50 p-6">
+${inner}<h2 className="text-xl font-medium text-neutral-950">TODO: ${s.heading}</h2>
+${inner}<p className="text-neutral-700">${s.placeholder}</p>
+${pad}</section>`
+    ).join(gap);
+  }
+  return sections.map(
+    (s) => `${pad}<section>
+${inner}<h2>TODO: ${s.heading}</h2>
+${inner}<p>${s.placeholder}</p>
+${pad}</section>`
+  ).join(gap);
+}
+function renderSections(framework, sections) {
+  switch (framework) {
+    case "nextjs":
+      return renderWithIndent(sections, 10, "\n\n", true);
+    case "sveltekit":
+      return renderWithIndent(sections, 2, "\n\n", false);
+    case "remix":
+      return renderWithIndent(sections, 6, "\n", false);
+    case "astro":
+      return renderWithIndent(sections, 6, "\n", false);
+    case "nuxt":
+      return renderWithIndent(sections, 4, "\n", false);
+  }
 }
 
 // src/core/generate.ts
@@ -448,7 +560,7 @@ var YMYL_TERMS = [
   "therapy",
   "mental health"
 ];
-var TODO_SECTIONS_PER_PAGE = 3;
+var TODO_SECTIONS_PER_PAGE = 4;
 var COMMENT_BLOCKS = {
   nextjs: [
     "// SOPHON GENERATED",
@@ -529,10 +641,16 @@ function buildHydrationMap(entity) {
     "__ENTITY_ATTRIBUTES__": JSON.stringify(entity.metadata.attributes ?? {}, null, 2)
   };
 }
-function hydrateTemplate(template, entity) {
-  return Object.entries(buildHydrationMap(entity)).reduce((content, [placeholder, value]) => {
+function hydrateTemplate(template, entity, framework) {
+  const jsonReplacements = buildHydrationMap(entity);
+  const intent = classifyIntent(entity.name).intent;
+  const sections = getSections(intent);
+  let result = Object.entries(jsonReplacements).reduce((content, [placeholder, value]) => {
     return content.replaceAll(placeholder, value);
   }, template);
+  result = result.replaceAll("__ENTITY_SECTIONS__", renderSections(framework, sections));
+  result = result.replaceAll("__ENTITY_INTENT__", intent);
+  return result;
 }
 function buildFrameworkTemplate(options, entity) {
   return ADAPTERS[options.framework]({
@@ -561,17 +679,33 @@ function buildAdditionalFiles(framework, outputRoot, entity) {
   return [
     {
       filePath: path.join(outputRoot, entity.slug, "+page.ts"),
-      content: hydrateTemplate(buildSvelteKitPageModule(), entity)
+      content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework)
     }
   ];
 }
 function prependCommentBlock(framework, content) {
   return `${COMMENT_BLOCKS[framework]}${content}`;
 }
-async function writeGeneratedFile(filePath, content) {
+function isManagedBySophon(content) {
+  return content.includes("SOPHON GENERATED") || content.includes("Sophon generated");
+}
+async function writeGeneratedFile(filePath, content, options = {}) {
+  if (!options.force) {
+    try {
+      const existing = await readFile2(filePath, "utf8");
+      if (!isManagedBySophon(existing)) {
+        console.warn(
+          `Skipping existing file already in place: ${filePath} (use --force to overwrite).`
+        );
+        return false;
+      }
+    } catch {
+    }
+  }
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
   console.log(`Generated file -> ${filePath}`);
+  return true;
 }
 async function generate(options) {
   const outputRoot = options.output ?? defaultOutputRoot(options.framework);
@@ -598,11 +732,19 @@ async function generate(options) {
       console.warn(warning);
     }
     const template = customTemplate ?? buildFrameworkTemplate(options, entity);
-    const pageContent = customTemplate ? prependCommentBlock(options.framework, hydrateTemplate(template, entity)) : hydrateTemplate(template, entity);
+    const pageContent = customTemplate ? prependCommentBlock(options.framework, hydrateTemplate(template, entity, options.framework)) : hydrateTemplate(template, entity, options.framework);
     const pagePath = buildMainPagePath(options.framework, outputRoot, entity.slug);
-    await writeGeneratedFile(pagePath, pageContent);
+    const pageWritten = await writeGeneratedFile(pagePath, pageContent, {
+      force: options.force
+    });
+    if (!pageWritten) {
+      warnings.push(`Page skipped because existing implementation was detected: ${pagePath}`);
+      continue;
+    }
     for (const file of buildAdditionalFiles(options.framework, outputRoot, entity)) {
-      await writeGeneratedFile(file.filePath, prependCommentBlock(options.framework, file.content));
+      await writeGeneratedFile(file.filePath, prependCommentBlock(options.framework, file.content), {
+        force: options.force
+      });
     }
     generated += 1;
   }
@@ -762,6 +904,28 @@ function relatedScore(entity, candidate) {
   score += countSharedTags(entity, candidate) * 2;
   return score;
 }
+function buildHreflang(siteUrl, entities) {
+  const lines = [
+    "# SOPHON GENERATED \u2014 Hreflang scaffold",
+    '# Add one <link rel="alternate"> block per language/region variant per entity.',
+    "# See: https://developers.google.com/search/docs/specialty/international/localization",
+    "#",
+    "# Example for a single entity (paste into your <head>):",
+    "#",
+    ...entities.slice(0, 3).map(
+      (e) => [
+        `# <!-- ${e.name} -->`,
+        `# <link rel="alternate" hreflang="en" href="${siteUrl}/${e.slug}" />`,
+        `# <link rel="alternate" hreflang="x-default" href="${siteUrl}/${e.slug}" />`,
+        `# <!-- Add hreflang="de", "fr", etc. for each language variant -->`,
+        "#"
+      ].join("\n")
+    ),
+    `# Total entities requiring hreflang coverage: ${entities.length}`,
+    ""
+  ].join("\n");
+  return lines;
+}
 function buildInternalLinks(entities) {
   return entities.map((entity) => ({
     entity: entity.slug,
@@ -779,20 +943,290 @@ async function technical(options) {
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
   const internalLinks = buildInternalLinks(options.entities);
+  const hreflang = buildHreflang(siteUrl, options.entities);
   await Promise.all([
-    writeGeneratedFile(path3.join(outputRoot, "sitemap.xml"), sitemap),
-    writeGeneratedFile(path3.join(outputRoot, "robots.txt"), robots),
+    writeGeneratedFile(path3.join(outputRoot, "sitemap.xml"), sitemap, {
+      force: options.force
+    }),
+    writeGeneratedFile(path3.join(outputRoot, "robots.txt"), robots, {
+      force: options.force
+    }),
     writeGeneratedFile(path3.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
-`),
+`, {
+      force: options.force
+    }),
     writeGeneratedFile(
       path3.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
-`
-    )
+`,
+      {
+        force: options.force
+      }
+    ),
+    writeGeneratedFile(path3.join(technicalRoot, "hreflang.txt"), hreflang, {
+      force: options.force
+    })
   ]);
   console.log(`sitemap.xml -> ${options.entities.length} URLs`);
   console.log(`schema.json -> ${schema.length} records`);
   console.log(`internal-links.json -> ${internalLinks.length} nodes`);
+  console.log(`hreflang.txt -> ${options.entities.length} entity scaffolds`);
+}
+
+// src/core/audit.ts
+import { access, readdir, readFile as readFile3 } from "fs/promises";
+import path4 from "path";
+var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
+async function exists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function walkFiles(root) {
+  const files = [];
+  async function walk(current) {
+    const entries = await readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
+      if (IGNORED_DIRS.has(entry.name)) {
+        continue;
+      }
+      const fullPath = path4.join(current, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else {
+        files.push(fullPath);
+      }
+    }
+  }
+  await walk(root);
+  return files;
+}
+async function hasPattern(files, pattern) {
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|astro|vue|svelte|mdx|html)$/i.test(file)) {
+      continue;
+    }
+    try {
+      const content = await readFile3(file, "utf8");
+      if (pattern.test(content)) {
+        return true;
+      }
+    } catch {
+    }
+  }
+  return false;
+}
+function gradeFromScore(score) {
+  if (score >= 90) return "A";
+  if (score >= 75) return "B";
+  if (score >= 60) return "C";
+  if (score >= 45) return "D";
+  return "F";
+}
+async function audit(options = {}) {
+  const root = options.root ?? process.cwd();
+  const files = await walkFiles(root);
+  const checks = [
+    {
+      label: "Sitemap",
+      implemented: await exists(path4.join(root, "public", "sitemap.xml")) || await exists(path4.join(root, "static", "sitemap.xml")) || await exists(path4.join(root, "sitemap.xml")),
+      weight: 15,
+      details: "Expected one of: public/sitemap.xml, static/sitemap.xml, sitemap.xml"
+    },
+    {
+      label: "Robots",
+      implemented: await exists(path4.join(root, "public", "robots.txt")) || await exists(path4.join(root, "static", "robots.txt")) || await exists(path4.join(root, "robots.txt")),
+      weight: 10,
+      details: "Expected one of: public/robots.txt, static/robots.txt, robots.txt"
+    },
+    {
+      label: "Canonical tags",
+      implemented: await hasPattern(files, /rel=["']canonical["']/i),
+      weight: 20,
+      details: 'Detected by rel="canonical" in page/head code'
+    },
+    {
+      label: "Open Graph tags",
+      implemented: await hasPattern(files, /og:title|openGraph/i),
+      weight: 15,
+      details: "Detected by og:* tags or openGraph metadata objects"
+    },
+    {
+      label: "Twitter card tags",
+      implemented: await hasPattern(files, /twitter:card|twitter\s*:\s*\{/i),
+      weight: 10,
+      details: "Detected by twitter:card tags or twitter metadata objects"
+    },
+    {
+      label: "Structured data (JSON-LD)",
+      implemented: await hasPattern(files, /application\/ld\+json|"@context"\s*:\s*"https:\/\/schema.org"/i),
+      weight: 15,
+      details: "Detected by JSON-LD script or schema.org context"
+    },
+    {
+      label: "404 handling",
+      implemented: await exists(path4.join(root, "app", "not-found.tsx")) || await exists(path4.join(root, "pages", "404.tsx")) || await exists(path4.join(root, "src", "routes", "+error.svelte")),
+      weight: 5,
+      details: "Detected common framework 404 conventions"
+    },
+    {
+      label: "Redirect handling",
+      implemented: await hasPattern(files, /redirects\s*\(|\[\[redirects\]\]|statusCode\s*:\s*301/i),
+      weight: 10,
+      details: "Detected common redirect config patterns"
+    }
+  ];
+  const implemented = checks.filter((check) => check.implemented);
+  const missing = checks.filter((check) => !check.implemented);
+  const score = implemented.reduce((sum, check) => sum + check.weight, 0);
+  const maxScore = checks.reduce((sum, check) => sum + check.weight, 0);
+  const normalizedScore = Math.round(score / maxScore * 100);
+  const grade = gradeFromScore(normalizedScore);
+  console.log("Sophon SEO audit");
+  console.log(`Already in place: ${implemented.length}/${checks.length}`);
+  for (const check of implemented) {
+    console.log(`  \u2713 ${check.label} (+${check.weight})`);
+  }
+  if (missing.length > 0) {
+    console.log("\nRecommended next additions:");
+    for (const check of missing) {
+      console.log(`  \u2717 ${check.label} (${check.weight} pts available)`);
+      if (check.details) {
+        console.log(`    hint: ${check.details}`);
+      }
+    }
+  }
+  console.log(`
+SEO score: ${score}/${maxScore} \u2014 ${normalizedScore}/100 (${grade})`);
+  return { score, maxScore, grade, checks };
+}
+
+// src/core/propose.ts
+var DEFAULT_LIMIT = 40;
+var EXTRA_PATTERNS = [
+  "{seed} tools",
+  "{seed} software",
+  "{seed} for agencies",
+  "{seed} for ecommerce",
+  "{seed} checklist",
+  "{seed} guide",
+  "how to choose {seed}",
+  "{seed} features",
+  "{seed} examples",
+  "{seed} template",
+  "{seed} implementation"
+];
+function slugify2(value) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
+}
+function stableHash2(value) {
+  let hash = 2166136261;
+  for (const character of value) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
+}
+function normalizePatterns(patterns) {
+  const base = patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
+  return [...base, ...EXTRA_PATTERNS];
+}
+function toProposedEntity(seed, query) {
+  const cleanName = query.trim();
+  const slug = slugify2(cleanName);
+  const scored = classifyIntent(cleanName);
+  return {
+    id: stableHash2(slug),
+    name: cleanName,
+    slug,
+    intent: scored.intent,
+    priority: scored.priority,
+    confidence: scored.confidence,
+    reason: `${scored.reason} Seed: ${seed}.`,
+    action: scored.action
+  };
+}
+function propose(options) {
+  if (!options.seed || options.seed.trim().length === 0) {
+    throw new Error("--seed is required for propose.");
+  }
+  const seed = options.seed.trim();
+  const limit = Math.max(1, options.limit ?? DEFAULT_LIMIT);
+  const templates = normalizePatterns(options.patterns);
+  const entities = templates.map((template) => template.replaceAll("{seed}", seed)).map((query) => toProposedEntity(seed, query)).filter((entity) => entity.slug.length > 0).sort((left, right) => right.priority - left.priority || right.confidence - left.confidence).filter((entity, index, list) => list.findIndex((candidate) => candidate.slug === entity.slug) === index).slice(0, limit);
+  const groupedByIntent = {
+    commercial: 0,
+    comparison: 0,
+    segmented: 0,
+    informational: 0
+  };
+  for (const entity of entities) {
+    groupedByIntent[entity.intent] += 1;
+  }
+  return {
+    generatedBy: "SOPHON GENERATED PROPOSALS",
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    seed,
+    totalProposed: entities.length,
+    groupedByIntent,
+    entities
+  };
+}
+
+// src/core/score.ts
+function gradeFromScore2(score) {
+  if (score >= 90) return "A";
+  if (score >= 75) return "B";
+  if (score >= 60) return "C";
+  if (score >= 45) return "D";
+  return "F";
+}
+function scoreEntity(entity) {
+  const checks = [];
+  let total = 0;
+  const hasTitle = !!entity.metadata.title && entity.metadata.title.length > 10;
+  checks.push({ label: "Title present and meaningful", points: hasTitle ? 20 : 0, maxPoints: 20, passed: hasTitle });
+  total += hasTitle ? 20 : 0;
+  const hasDesc = !!entity.metadata.description && entity.metadata.description.length > 20;
+  checks.push({ label: "Description present and meaningful", points: hasDesc ? 20 : 0, maxPoints: 20, passed: hasDesc });
+  total += hasDesc ? 20 : 0;
+  const hasTags = (entity.metadata.tags?.length ?? 0) >= 1;
+  checks.push({ label: "At least one tag", points: hasTags ? 10 : 0, maxPoints: 10, passed: hasTags });
+  total += hasTags ? 10 : 0;
+  const hasAttrs = Object.keys(entity.metadata.attributes ?? {}).length >= 1;
+  checks.push({ label: "At least one attribute", points: hasAttrs ? 10 : 0, maxPoints: 10, passed: hasAttrs });
+  total += hasAttrs ? 10 : 0;
+  const cleanSlug = entity.slug.length > 0 && !entity.slug.includes("--") && entity.slug.length <= 80;
+  checks.push({ label: "Clean URL-safe slug", points: cleanSlug ? 10 : 0, maxPoints: 10, passed: cleanSlug });
+  total += cleanSlug ? 10 : 0;
+  const { confidence } = classifyIntent(entity.name);
+  const highConfidence = confidence >= 0.82;
+  checks.push({ label: "High-confidence intent", points: highConfidence ? 15 : 5, maxPoints: 15, passed: highConfidence });
+  total += highConfidence ? 15 : 5;
+  const wordCount = entity.name.split(/\s+/).length;
+  const specific = wordCount >= 3;
+  checks.push({ label: "Specific entity name (3+ words)", points: specific ? 15 : 5, maxPoints: 15, passed: specific });
+  total += specific ? 15 : 5;
+  return {
+    slug: entity.slug,
+    name: entity.name,
+    score: total,
+    grade: gradeFromScore2(total),
+    checks
+  };
+}
+function scoreEntities(entities) {
+  const scored = entities.map(scoreEntity);
+  const avg = scored.length > 0 ? Math.round(scored.reduce((sum, e) => sum + e.score, 0) / scored.length) : 0;
+  return {
+    entityCount: scored.length,
+    averageScore: avg,
+    averageGrade: gradeFromScore2(avg),
+    entities: scored
+  };
 }
 
 // src/cli.ts
@@ -815,12 +1249,15 @@ function parseCli() {
       "generate-output": { type: "string" },
       "technical-output": { type: "string" },
       "enrich-output": { type: "string" },
+      "propose-output": { type: "string" },
       pattern: { type: "string", multiple: true },
       patterns: { type: "string", multiple: true },
+      limit: { type: "string" },
       framework: { type: "string" },
       template: { type: "string" },
       site: { type: "string" },
       "title-template": { type: "string" },
+      force: { type: "boolean" },
       help: { type: "boolean", short: "h" }
     },
     strict: false
@@ -831,25 +1268,25 @@ function defaultOutputRoot2(framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return path4.join("src", "pages");
+      return path5.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return path4.join("src", "routes");
+      return path5.join("src", "routes");
     case "remix":
-      return path4.join("app", "routes");
+      return path5.join("app", "routes");
   }
 }
 async function readJsonIfExists(filePath) {
   try {
-    const raw = await readFile3(filePath, "utf8");
+    const raw = await readFile4(filePath, "utf8");
     return JSON.parse(raw);
   } catch {
     return void 0;
   }
 }
 async function detectFramework() {
-  const packageJson = await readJsonIfExists(path4.join(process.cwd(), "package.json"));
+  const packageJson = await readJsonIfExists(path5.join(process.cwd(), "package.json"));
   const dependencies = {
     ...packageJson?.dependencies,
     ...packageJson?.devDependencies
@@ -895,24 +1332,24 @@ async function resolveFramework(value) {
   return await detectFramework() ?? promptFramework();
 }
 async function readConfig() {
-  const config = await readJsonIfExists(path4.join(process.cwd(), "sophon.config.json"));
+  const config = await readJsonIfExists(path5.join(process.cwd(), "sophon.config.json"));
   return config;
 }
 async function loadDiscoverResult(filePath) {
-  const raw = await readFile3(filePath, "utf8");
+  const raw = await readFile4(filePath, "utf8");
   return JSON.parse(raw);
 }
 async function initCommand(values) {
   const framework = await resolveFramework(asString(values.framework));
   const config = {
     framework,
-    entitiesPath: path4.join("data", "entities.json"),
+    entitiesPath: path5.join("data", "entities.json"),
     pagesOutput: defaultOutputRoot2(framework),
     technicalOutput: "public",
-    enrichOutput: path4.join("data", "enriched")
+    enrichOutput: path5.join("data", "enriched")
   };
   await writeGeneratedFile(
-    path4.join(process.cwd(), "sophon.config.json"),
+    path5.join(process.cwd(), "sophon.config.json"),
     `${JSON.stringify(config, null, 2)}
 `
   );
@@ -925,26 +1362,45 @@ async function discoverCommand(values) {
     titleTemplate: asString(values["title-template"]),
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)]
   });
-  const outputPath = asString(values["discover-output"]) ?? asString(values.output) ?? path4.join("data", "entities.json");
+  const outputPath = asString(values["discover-output"]) ?? asString(values.output) ?? path5.join("data", "entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `);
   return result;
 }
+async function proposeCommand(values) {
+  const seed = asString(values.seed);
+  if (!seed) {
+    throw new Error("--seed is required for the propose command.");
+  }
+  const result = propose({
+    seed,
+    patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)],
+    limit: Number.parseInt(asString(values.limit) ?? "", 10) || void 0
+  });
+  const outputPath = asString(values["propose-output"]) ?? asString(values.output) ?? path5.join("data", "proposed-entities.json");
+  await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
+`, {
+    force: Boolean(values.force)
+  });
+  console.log(`proposed entities -> ${result.totalProposed}`);
+  console.log(`intent mix -> ${JSON.stringify(result.groupedByIntent)}`);
+}
 async function generateCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path4.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path5.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const framework = await resolveFramework(asString(values.framework));
   await generate({
     entities: payload.entities,
     framework,
     output: asString(values["generate-output"]) ?? asString(values.output) ?? config?.pagesOutput,
-    template: asString(values.template)
+    template: asString(values.template),
+    force: Boolean(values.force)
   });
 }
 async function technicalCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path4.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path5.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const site = asString(values.site);
   if (!site) {
@@ -953,12 +1409,13 @@ async function technicalCommand(values) {
   await technical({
     entities: payload.entities,
     site,
-    output: asString(values["technical-output"]) ?? asString(values.output) ?? config?.technicalOutput
+    output: asString(values["technical-output"]) ?? asString(values.output) ?? config?.technicalOutput,
+    force: Boolean(values.force)
   });
 }
 async function enrichCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path4.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path5.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   await enrich({
     entities: payload.entities,
@@ -968,10 +1425,10 @@ async function enrichCommand(values) {
 async function runCommand(values) {
   const config = await readConfig();
   const framework = await resolveFramework(asString(values.framework));
-  const discoverOutput = asString(values["discover-output"]) ?? asString(values.output) ?? config?.entitiesPath ?? path4.join("data", "entities.json");
+  const discoverOutput = asString(values["discover-output"]) ?? asString(values.output) ?? config?.entitiesPath ?? path5.join("data", "entities.json");
   const generateOutput = asString(values["generate-output"]) ?? config?.pagesOutput ?? defaultOutputRoot2(framework);
   const technicalOutput = asString(values["technical-output"]) ?? config?.technicalOutput ?? "public";
-  const enrichOutput = asString(values["enrich-output"]) ?? config?.enrichOutput ?? path4.join("data", "enriched");
+  const enrichOutput = asString(values["enrich-output"]) ?? config?.enrichOutput ?? path5.join("data", "enriched");
   console.log("Running discover...");
   const result = await discover({
     csv: asString(values.csv),
@@ -987,7 +1444,8 @@ async function runCommand(values) {
     entities: result.entities,
     framework,
     output: generateOutput,
-    template: asString(values.template)
+    template: asString(values.template),
+    force: Boolean(values.force)
   });
   const site = asString(values.site);
   if (!site) {
@@ -997,7 +1455,8 @@ async function runCommand(values) {
   await technical({
     entities: result.entities,
     site,
-    output: technicalOutput
+    output: technicalOutput,
+    force: Boolean(values.force)
   });
   if (!process.env.ANTHROPIC_API_KEY) {
     console.warn("Skipping enrich: ANTHROPIC_API_KEY is not set.");
@@ -1009,23 +1468,53 @@ async function runCommand(values) {
     output: enrichOutput
   });
 }
+async function auditCommand() {
+  await audit();
+}
+async function scoreCommand(values) {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path5.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+  const result = scoreEntities(payload.entities);
+  const outputPath = asString(values.output) ?? path5.join("data", "scores.json");
+  await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
+`, {
+    force: Boolean(values.force)
+  });
+  console.log(`Entity health score: ${result.averageScore}/100 (${result.averageGrade})`);
+  console.log(`Scored ${result.entityCount} entities`);
+  const lowScoring = result.entities.filter((e) => e.score < 60);
+  if (lowScoring.length > 0) {
+    console.log(`
+Entities needing attention (${lowScoring.length}):`);
+    for (const entity of lowScoring.slice(0, 10)) {
+      console.log(`  ${entity.slug}: ${entity.score}/100 (${entity.grade})`);
+    }
+  }
+}
 function printHelp() {
   console.log(`sophon <command>
 
 Commands:
   sophon init
   sophon discover --seed "keyword" | --csv ./file.csv
+  sophon propose --seed "keyword"
   sophon generate --framework nextjs
   sophon technical --site https://example.com
   sophon enrich
   sophon run --seed "keyword" --framework nextjs --site https://example.com
+  sophon audit
+  sophon score
 
 Common flags:
   --entities <path>
   --discover-output <path>
+  --propose-output <path>
   --generate-output <path>
   --technical-output <path>
-  --enrich-output <path>`);
+  --enrich-output <path>
+  --limit <number>
+  --force`);
 }
 async function main() {
   const parsed = parseCli();
@@ -1041,6 +1530,9 @@ async function main() {
     case "discover":
       await discoverCommand(parsed.values);
       return;
+    case "propose":
+      await proposeCommand(parsed.values);
+      return;
     case "generate":
       await generateCommand(parsed.values);
       return;
@@ -1052,6 +1544,12 @@ async function main() {
       return;
     case "run":
       await runCommand(parsed.values);
+      return;
+    case "audit":
+      await auditCommand();
+      return;
+    case "score":
+      await scoreCommand(parsed.values);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

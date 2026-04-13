@@ -7,6 +7,8 @@ import { nuxt } from "../adapters/nuxt";
 import { remix } from "../adapters/remix";
 import { buildSvelteKitPageModule } from "../adapters/sveltekit-page";
 import { sveltekit } from "../adapters/sveltekit";
+import { classifyIntent } from "./intent";
+import { getSections, renderSections } from "./sections";
 import type { EntityRecord, Framework, GenerateOptions, GenerateSummary } from "../types";
 
 const YMYL_TERMS = [
@@ -23,7 +25,7 @@ const YMYL_TERMS = [
   "mental health",
 ];
 
-const TODO_SECTIONS_PER_PAGE = 3;
+const TODO_SECTIONS_PER_PAGE = 4;
 
 type AdapterGenerator = (options: GenerateOptions) => string;
 
@@ -115,10 +117,19 @@ function buildHydrationMap(entity: EntityRecord): Record<string, string> {
   };
 }
 
-function hydrateTemplate(template: string, entity: EntityRecord): string {
-  return Object.entries(buildHydrationMap(entity)).reduce((content, [placeholder, value]) => {
+function hydrateTemplate(template: string, entity: EntityRecord, framework: Framework): string {
+  const jsonReplacements = buildHydrationMap(entity);
+  const intent = classifyIntent(entity.name).intent;
+  const sections = getSections(intent);
+
+  let result = Object.entries(jsonReplacements).reduce((content, [placeholder, value]) => {
     return content.replaceAll(placeholder, value);
   }, template);
+
+  result = result.replaceAll("__ENTITY_SECTIONS__", renderSections(framework, sections));
+  result = result.replaceAll("__ENTITY_INTENT__", intent);
+
+  return result;
 }
 
 function buildFrameworkTemplate(options: GenerateOptions, entity: EntityRecord): string {
@@ -151,7 +162,7 @@ function buildAdditionalFiles(framework: Framework, outputRoot: string, entity: 
   return [
     {
       filePath: path.join(outputRoot, entity.slug, "+page.ts"),
-      content: hydrateTemplate(buildSvelteKitPageModule(), entity),
+      content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework),
     },
   ];
 }
@@ -225,8 +236,8 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
 
     const template = customTemplate ?? buildFrameworkTemplate(options, entity);
     const pageContent = customTemplate
-      ? prependCommentBlock(options.framework, hydrateTemplate(template, entity))
-      : hydrateTemplate(template, entity);
+      ? prependCommentBlock(options.framework, hydrateTemplate(template, entity, options.framework))
+      : hydrateTemplate(template, entity, options.framework);
     const pagePath = buildMainPagePath(options.framework, outputRoot, entity.slug);
 
     const pageWritten = await writeGeneratedFile(pagePath, pageContent, {
