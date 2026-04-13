@@ -150,6 +150,25 @@ npx @sophonn/sophon run \
   --enrich-output ./data/enriched
 ```
 
+### 8. Audit existing SEO setup ✅
+
+```bash
+npx @sophonn/sophon audit
+```
+
+This checks common SEO implementations (sitemap, robots, canonical tags, OG/Twitter cards, schema, redirects, 404 handling) and reports what is already in place versus missing.
+
+### Safeproof behavior (skip if already implemented) 🛡️
+
+Generation and technical commands now skip existing non-Sophon files by default and print a reminder that something is already in place.
+
+Use `--force` only when you intentionally want to overwrite:
+
+```bash
+npx @sophonn/sophon generate --framework nextjs --force
+npx @sophonn/sophon technical --site https://example.com --force
+```
+
 ## Programmatic API 🧪
 
 ```ts
@@ -226,6 +245,19 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - CMS sync (Contentful, Sanity, etc.)
 - Content freshness management or scheduled re-enrichment
 - A/B testing or variant generation
+
+## What Is Not Part of This pSEO Yet (Coming Soon) ⏳
+
+These capabilities are intentionally out of scope today and planned for upcoming versions:
+
+- AI-assisted entity expansion and SERP-backed discovery providers
+- OG image generation per entity
+- First-class multilingual support (not just hreflang scaffold output)
+- Pagination and faceted navigation handling helpers
+- 404 and redirect helpers (including 301 mapping outputs)
+- CMS connectors (Contentful, Sanity)
+- Content freshness workflows and scheduled re-enrichment
+- Performance-focused generation defaults for Core Web Vitals
 
 ## Design Principles 🧭
 

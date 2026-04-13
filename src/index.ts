@@ -2,6 +2,7 @@ export { discover } from "./core/discover";
 export { generate } from "./core/generate";
 export { technical } from "./core/technical";
 export { enrich } from "./core/enrich";
+export { audit } from "./core/audit";
 export { nextjs } from "./adapters/nextjs";
 export { astro } from "./adapters/astro";
 export { nuxt } from "./adapters/nuxt";

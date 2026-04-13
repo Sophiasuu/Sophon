@@ -36,12 +36,14 @@ export type GenerateOptions = {
   framework: Framework;
   output?: string;
   template?: string;
+  force?: boolean;
 };
 
 export type TechnicalOptions = {
   entities: EntityRecord[];
   site: string;
   output?: string;
+  force?: boolean;
 };
 
 export type EnrichOptions = {

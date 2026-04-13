@@ -160,10 +160,38 @@ function prependCommentBlock(framework: Framework, content: string): string {
   return `${COMMENT_BLOCKS[framework]}${content}`;
 }
 
-export async function writeGeneratedFile(filePath: string, content: string): Promise<void> {
+type WriteGeneratedFileOptions = {
+  force?: boolean;
+};
+
+function isManagedBySophon(content: string): boolean {
+  return content.includes("SOPHON GENERATED") || content.includes("Sophon generated");
+}
+
+export async function writeGeneratedFile(
+  filePath: string,
+  content: string,
+  options: WriteGeneratedFileOptions = {},
+): Promise<boolean> {
+  if (!options.force) {
+    try {
+      const existing = await readFile(filePath, "utf8");
+
+      if (!isManagedBySophon(existing)) {
+        console.warn(
+          `Skipping existing file already in place: ${filePath} (use --force to overwrite).`,
+        );
+        return false;
+      }
+    } catch {
+      // File does not exist yet.
+    }
+  }
+
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
   console.log(`Generated file -> ${filePath}`);
+  return true;
 }
 
 export async function generate(options: GenerateOptions): Promise<GenerateSummary> {
@@ -201,10 +229,19 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
       : hydrateTemplate(template, entity);
     const pagePath = buildMainPagePath(options.framework, outputRoot, entity.slug);
 
-    await writeGeneratedFile(pagePath, pageContent);
+    const pageWritten = await writeGeneratedFile(pagePath, pageContent, {
+      force: options.force,
+    });
+
+    if (!pageWritten) {
+      warnings.push(`Page skipped because existing implementation was detected: ${pagePath}`);
+      continue;
+    }
 
     for (const file of buildAdditionalFiles(options.framework, outputRoot, entity)) {
-      await writeGeneratedFile(file.filePath, prependCommentBlock(options.framework, file.content));
+      await writeGeneratedFile(file.filePath, prependCommentBlock(options.framework, file.content), {
+        force: options.force,
+      });
     }
 
     generated += 1;

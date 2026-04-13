@@ -10,6 +10,7 @@ import { discover } from "./core/discover";
 import { enrich } from "./core/enrich";
 import { generate, writeGeneratedFile } from "./core/generate";
 import { technical } from "./core/technical";
+import { audit } from "./core/audit";
 import type { DiscoverResult, Framework } from "./types";
 
 type SophonConfig = {
@@ -47,6 +48,7 @@ function parseCli() {
       template: { type: "string" },
       site: { type: "string" },
       "title-template": { type: "string" },
+      force: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     strict: false,
@@ -190,6 +192,7 @@ async function generateCommand(values: ReturnType<typeof parseCli>["values"]): P
     framework,
     output: asString(values["generate-output"]) ?? asString(values.output) ?? config?.pagesOutput,
     template: asString(values.template),
+    force: Boolean(values.force),
   });
 }
 
@@ -207,6 +210,7 @@ async function technicalCommand(values: ReturnType<typeof parseCli>["values"]): 
     entities: payload.entities,
     site,
     output: asString(values["technical-output"]) ?? asString(values.output) ?? config?.technicalOutput,
+    force: Boolean(values.force),
   });
 }
 
@@ -245,6 +249,7 @@ async function runCommand(values: ReturnType<typeof parseCli>["values"]): Promis
     framework,
     output: generateOutput,
     template: asString(values.template),
+    force: Boolean(values.force),
   });
 
   const site = asString(values.site);
@@ -258,6 +263,7 @@ async function runCommand(values: ReturnType<typeof parseCli>["values"]): Promis
     entities: result.entities,
     site,
     output: technicalOutput,
+    force: Boolean(values.force),
   });
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -272,6 +278,10 @@ async function runCommand(values: ReturnType<typeof parseCli>["values"]): Promis
   });
 }
 
+async function auditCommand(): Promise<void> {
+  await audit();
+}
+
 function printHelp(): void {
   console.log(`sophon <command>
 
@@ -282,13 +292,15 @@ Commands:
   sophon technical --site https://example.com
   sophon enrich
   sophon run --seed "keyword" --framework nextjs --site https://example.com
+  sophon audit
 
 Common flags:
   --entities <path>
   --discover-output <path>
   --generate-output <path>
   --technical-output <path>
-  --enrich-output <path>`);
+  --enrich-output <path>
+  --force`);
 }
 
 async function main(): Promise<void> {
@@ -318,6 +330,9 @@ async function main(): Promise<void> {
       return;
     case "run":
       await runCommand(parsed.values);
+      return;
+    case "audit":
+      await auditCommand();
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

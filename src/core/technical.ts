@@ -148,14 +148,25 @@ export async function technical(options: TechnicalOptions): Promise<void> {
   const hreflang = buildHreflang(siteUrl, options.entities);
 
   await Promise.all([
-    writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemap),
-    writeGeneratedFile(path.join(outputRoot, "robots.txt"), robots),
-    writeGeneratedFile(path.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}\n`),
+    writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemap, {
+      force: options.force,
+    }),
+    writeGeneratedFile(path.join(outputRoot, "robots.txt"), robots, {
+      force: options.force,
+    }),
+    writeGeneratedFile(path.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}\n`, {
+      force: options.force,
+    }),
     writeGeneratedFile(
       path.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}\n`,
+      {
+        force: options.force,
+      },
     ),
-    writeGeneratedFile(path.join(technicalRoot, "hreflang.txt"), hreflang),
+    writeGeneratedFile(path.join(technicalRoot, "hreflang.txt"), hreflang, {
+      force: options.force,
+    }),
   ]);
 
   console.log(`sitemap.xml -> ${options.entities.length} URLs`);
