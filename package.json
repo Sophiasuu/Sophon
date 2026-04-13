@@ -45,6 +45,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:skills": "node scripts/build-skills.mjs",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck && npm run build"
