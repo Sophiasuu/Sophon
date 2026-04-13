@@ -22,6 +22,13 @@ export const meta: MetaFunction = () => {
     { title: entity.title },
     { name: "description", content: entity.description },
     { tagName: "link", rel: "canonical", href: "/" + entity.slug },
+    { property: "og:title", content: entity.title },
+    { property: "og:description", content: entity.description },
+    { property: "og:url", content: "/" + entity.slug },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: entity.title },
+    { name: "twitter:description", content: entity.description },
   ];
 };
 

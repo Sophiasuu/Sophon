@@ -96,6 +96,30 @@ function relatedScore(entity: EntityRecord, candidate: EntityRecord): number {
   return score;
 }
 
+export function buildHreflang(siteUrl: string, entities: EntityRecord[]): string {
+  const lines = [
+    "# SOPHON GENERATED — Hreflang scaffold",
+    "# Add one <link rel=\"alternate\"> block per language/region variant per entity.",
+    "# See: https://developers.google.com/search/docs/specialty/international/localization",
+    "#",
+    "# Example for a single entity (paste into your <head>):",
+    "#",
+    ...entities.slice(0, 3).map((e) =>
+      [
+        `# <!-- ${e.name} -->`,
+        `# <link rel="alternate" hreflang="en" href="${siteUrl}/${e.slug}" />`,
+        `# <link rel="alternate" hreflang="x-default" href="${siteUrl}/${e.slug}" />`,
+        `# <!-- Add hreflang="de", "fr", etc. for each language variant -->`,
+        "#",
+      ].join("\n"),
+    ),
+    `# Total entities requiring hreflang coverage: ${entities.length}`,
+    "",
+  ].join("\n");
+
+  return lines;
+}
+
 export function buildInternalLinks(entities: EntityRecord[]): InternalLinkRecord[] {
   return entities.map((entity) => ({
     entity: entity.slug,
@@ -121,6 +145,7 @@ export async function technical(options: TechnicalOptions): Promise<void> {
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
   const internalLinks = buildInternalLinks(options.entities);
+  const hreflang = buildHreflang(siteUrl, options.entities);
 
   await Promise.all([
     writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemap),
@@ -130,9 +155,11 @@ export async function technical(options: TechnicalOptions): Promise<void> {
       path.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}\n`,
     ),
+    writeGeneratedFile(path.join(technicalRoot, "hreflang.txt"), hreflang),
   ]);
 
   console.log(`sitemap.xml -> ${options.entities.length} URLs`);
   console.log(`schema.json -> ${schema.length} records`);
   console.log(`internal-links.json -> ${internalLinks.length} nodes`);
+  console.log(`hreflang.txt -> ${options.entities.length} entity scaffolds`);
 }

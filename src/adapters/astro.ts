@@ -23,6 +23,16 @@ const entity = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{entity.title}</title>
     <meta name="description" content={entity.description} />
+    <link rel="canonical" href={\`/\${entity.slug}\`} />
+    <!-- Open Graph -->
+    <meta property="og:title" content={entity.title} />
+    <meta property="og:description" content={entity.description} />
+    <meta property="og:url" content={\`/\${entity.slug}\`} />
+    <meta property="og:type" content="website" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={entity.title} />
+    <meta name="twitter:description" content={entity.description} />
   </head>
   <body>
     <main>

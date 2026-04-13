@@ -23,6 +23,17 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/" + entity.slug,
   },
+  openGraph: {
+    title: entity.title,
+    description: entity.description,
+    url: "/" + entity.slug,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: entity.title,
+    description: entity.description,
+  },
 };
 
 export const dynamic = "force-static";
