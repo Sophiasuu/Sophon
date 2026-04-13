@@ -7,7 +7,12 @@ Run the complete Sophon pipeline in a single command: discover entities, generat
 
 ## MANDATORY PREPARATION
 
-Invoke the `sophon` skill first. It contains framework detection, entity model, and operating rules. Refer to the `discover`, `generate`, `technical`, and `enrich` skills for step-specific details.
+Invoke the `sophon` skill first. It contains framework detection, entity model, operating rules, and the **Context Gathering Protocol**. Refer to the `discover`, `generate`, `technical`, and `enrich` skills for step-specific details.
+
+**Follow the protocol before doing any work:**
+1. Check loaded instructions for a `## Sophon Project Context` section.
+2. Check `.sophon.md` in the project root.
+3. If neither exists, run `sophon teach` now — do NOT skip this step.
 
 ---
 

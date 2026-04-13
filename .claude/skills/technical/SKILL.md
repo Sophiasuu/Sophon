@@ -9,7 +9,12 @@ Generate technical SEO scaffolds from discovered entities: sitemap, robots, sche
 
 ## MANDATORY PREPARATION
 
-Invoke the `sophon` skill first. It contains entity model conventions and output path expectations.
+Invoke the `sophon` skill first. It contains entity model conventions, output path expectations, and the **Context Gathering Protocol**.
+
+**Follow the protocol before doing any work:**
+1. Check loaded instructions for a `## Sophon Project Context` section.
+2. Check `.sophon.md` in the project root.
+3. If neither exists, run `sophon teach` now — do NOT skip this step.
 
 ---
 

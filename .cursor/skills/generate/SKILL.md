@@ -7,7 +7,12 @@ Generate one static page per entity using the framework adapter that matches the
 
 ## MANDATORY PREPARATION
 
-Invoke the `sophon` skill first. It contains the adapter map, entity model, and output path conventions.
+Invoke the `sophon` skill first. It contains the adapter map, entity model, output path conventions, and the **Context Gathering Protocol**.
+
+**Follow the protocol before doing any work:**
+1. Check loaded instructions for a `## Sophon Project Context` section.
+2. Check `.sophon.md` in the project root.
+3. If neither exists, run `sophon teach` now — do NOT skip this step.
 
 ---
 
