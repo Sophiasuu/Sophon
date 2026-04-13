@@ -11,6 +11,7 @@ import { enrich } from "./core/enrich";
 import { generate, writeGeneratedFile } from "./core/generate";
 import { technical } from "./core/technical";
 import { audit } from "./core/audit";
+import { propose } from "./core/propose";
 import type { DiscoverResult, Framework } from "./types";
 
 type SophonConfig = {
@@ -42,8 +43,10 @@ function parseCli() {
       "generate-output": { type: "string" },
       "technical-output": { type: "string" },
       "enrich-output": { type: "string" },
+      "propose-output": { type: "string" },
       pattern: { type: "string", multiple: true },
       patterns: { type: "string", multiple: true },
+      limit: { type: "string" },
       framework: { type: "string" },
       template: { type: "string" },
       site: { type: "string" },
@@ -181,6 +184,29 @@ async function discoverCommand(values: ReturnType<typeof parseCli>["values"]): P
   return result;
 }
 
+async function proposeCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const seed = asString(values.seed);
+
+  if (!seed) {
+    throw new Error("--seed is required for the propose command.");
+  }
+
+  const result = propose({
+    seed,
+    patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)],
+    limit: Number.parseInt(asString(values.limit) ?? "", 10) || undefined,
+  });
+
+  const outputPath =
+    asString(values["propose-output"]) ?? asString(values.output) ?? path.join("data", "proposed-entities.json");
+  await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, {
+    force: Boolean(values.force),
+  });
+
+  console.log(`proposed entities -> ${result.totalProposed}`);
+  console.log(`intent mix -> ${JSON.stringify(result.groupedByIntent)}`);
+}
+
 async function generateCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
   const config = await readConfig();
   const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
@@ -288,6 +314,7 @@ function printHelp(): void {
 Commands:
   sophon init
   sophon discover --seed "keyword" | --csv ./file.csv
+  sophon propose --seed "keyword"
   sophon generate --framework nextjs
   sophon technical --site https://example.com
   sophon enrich
@@ -297,9 +324,11 @@ Commands:
 Common flags:
   --entities <path>
   --discover-output <path>
+  --propose-output <path>
   --generate-output <path>
   --technical-output <path>
   --enrich-output <path>
+  --limit <number>
   --force`);
 }
 
@@ -318,6 +347,9 @@ async function main(): Promise<void> {
       return;
     case "discover":
       await discoverCommand(parsed.values);
+      return;
+    case "propose":
+      await proposeCommand(parsed.values);
       return;
     case "generate":
       await generateCommand(parsed.values);

@@ -95,6 +95,16 @@ npx @sophonn/sophon discover --csv ./input/entities.csv
 
 Writes normalized entities to `data/entities.json` by default. Extra CSV columns are preserved in `metadata.attributes` for downstream use.
 
+### 3.5 Propose entities (review-first) 🧭
+
+```bash
+npx @sophonn/sophon propose --seed "best payroll software"
+```
+
+This generates `data/proposed-entities.json` with intent-aware proposed entities (commercial, comparison, segmented, informational), plus priority, confidence, and recommended action (`keep` or `review`).
+
+Use `--limit` to cap the list size and `--propose-output` to customize output path.
+
 ### 4. Generate pages 🧩
 
 ```bash
@@ -172,7 +182,9 @@ npx @sophonn/sophon technical --site https://example.com --force
 ## Programmatic API 🧪
 
 ```ts
-import { discover, generate, technical, enrich } from "@sophonn/sophon";
+import { discover, propose, generate, technical, enrich } from "@sophonn/sophon";
+
+const proposed = propose({ seed: "best payroll software", limit: 30 });
 
 const result = await discover({ seed: "best payroll software" });
 

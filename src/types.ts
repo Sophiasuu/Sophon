@@ -31,6 +31,40 @@ export type DiscoverOptions = {
   patterns?: string[];
 };
 
+export type ProposedEntityIntent =
+  | "commercial"
+  | "comparison"
+  | "segmented"
+  | "informational";
+
+export type ProposedEntityAction = "keep" | "review";
+
+export type ProposedEntity = {
+  id: string;
+  name: string;
+  slug: string;
+  intent: ProposedEntityIntent;
+  priority: number;
+  confidence: number;
+  reason: string;
+  action: ProposedEntityAction;
+};
+
+export type ProposeOptions = {
+  seed: string;
+  patterns?: string[];
+  limit?: number;
+};
+
+export type ProposeResult = {
+  generatedBy: string;
+  generatedAt: string;
+  seed: string;
+  totalProposed: number;
+  groupedByIntent: Record<ProposedEntityIntent, number>;
+  entities: ProposedEntity[];
+};
+
 export type GenerateOptions = {
   entities: EntityRecord[];
   framework: Framework;

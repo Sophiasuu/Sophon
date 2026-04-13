@@ -1,4 +1,5 @@
 export { discover } from "./core/discover";
+export { propose } from "./core/propose";
 export { generate } from "./core/generate";
 export { technical } from "./core/technical";
 export { enrich } from "./core/enrich";
@@ -12,6 +13,11 @@ export type {
   EntityRecord,
   DiscoverResult,
   DiscoverOptions,
+  ProposeOptions,
+  ProposeResult,
+  ProposedEntity,
+  ProposedEntityIntent,
+  ProposedEntityAction,
   GenerateOptions,
   TechnicalOptions,
   EnrichOptions,
