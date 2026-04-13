@@ -2,7 +2,7 @@
 
 Sophon is an open source programmatic SEO toolkit packaged as an npm library with both a CLI and programmatic API. It turns a seed keyword or entity list into framework-specific pages, sitemaps, schema markup, internal linking data, and optional AI enrichment outputs.
 
-The package is prepared to publish as `@sophiasuu/sophon` while keeping the CLI command name `sophon`.
+The package is prepared to publish as `@sophonn/sophon` while keeping the CLI command name `sophon`.
 
 It is framework agnostic in its core logic and currently ships generation adapters for:
 
@@ -62,7 +62,7 @@ npm install
 To use the published package in another project:
 
 ```bash
-npm install @sophiasuu/sophon
+npm install @sophonn/sophon
 ```
 
 ### 2. Build the package
@@ -74,7 +74,7 @@ npm run build
 ### 3. Initialize Sophon in a host project
 
 ```bash
-npx @sophiasuu/sophon init --framework nextjs
+npx @sophonn/sophon init --framework nextjs
 ```
 
 This creates `sophon.config.json` with detected or specified framework defaults.
@@ -84,13 +84,13 @@ This creates `sophon.config.json` with detected or specified framework defaults.
 From a seed keyword:
 
 ```bash
-npx @sophiasuu/sophon discover --seed "best payroll software"
+npx @sophonn/sophon discover --seed "best payroll software"
 ```
 
 With custom expansion patterns:
 
 ```bash
-npx @sophiasuu/sophon discover \
+npx @sophonn/sophon discover \
 	--seed "best payroll software" \
 	--pattern "{seed} alternatives" \
 	--pattern "{seed} pricing" \
@@ -100,7 +100,7 @@ npx @sophiasuu/sophon discover \
 From a CSV file:
 
 ```bash
-npx @sophiasuu/sophon discover --csv ./input/entities.csv
+npx @sophonn/sophon discover --csv ./input/entities.csv
 ```
 
 This writes normalized entities into `data/entities.json` by default, or to `--discover-output` when provided.
@@ -108,7 +108,7 @@ This writes normalized entities into `data/entities.json` by default, or to `--d
 ### 5. Generate pages
 
 ```bash
-npx @sophiasuu/sophon generate --framework nextjs
+npx @sophonn/sophon generate --framework nextjs
 ```
 
 Sophon generates one static page per entity. Output roots by framework default to:
@@ -130,7 +130,7 @@ Notes:
 ### 6. Generate technical SEO assets
 
 ```bash
-npx @sophiasuu/sophon technical --site https://example.com
+npx @sophonn/sophon technical --site https://example.com
 ```
 
 This produces scaffolds for:
@@ -150,13 +150,13 @@ The technical generator now also:
 ### 7. Run the full pipeline
 
 ```bash
-npx @sophiasuu/sophon run --seed "best payroll software" --framework nextjs --site https://example.com
+npx @sophonn/sophon run --seed "best payroll software" --framework nextjs --site https://example.com
 ```
 
 Per-step output overrides are supported for the full pipeline:
 
 ```bash
-npx @sophiasuu/sophon run \
+npx @sophonn/sophon run \
 	--seed "best payroll software" \
 	--framework sveltekit \
 	--site https://example.com \
@@ -173,7 +173,7 @@ npx @sophiasuu/sophon run \
 Sophon also exposes a library API:
 
 ```ts
-import { discover, generate, technical, enrich } from "@sophiasuu/sophon";
+import { discover, generate, technical, enrich } from "@sophonn/sophon";
 
 const result = await discover({ seed: "best payroll software" });
 

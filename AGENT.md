@@ -92,21 +92,21 @@ If the user provides both a seed keyword and CSV, prefer CSV as the source of tr
 Default to the package CLI:
 
 ```bash
-npx @sophiasuu/sophon discover --seed "best payroll software"
-npx @sophiasuu/sophon generate --framework nextjs
-npx @sophiasuu/sophon technical --site https://example.com
+npx @sophonn/sophon discover --seed "best payroll software"
+npx @sophonn/sophon generate --framework nextjs
+npx @sophonn/sophon technical --site https://example.com
 ```
 
 For custom seed expansion patterns, prefer repeated `--pattern` flags:
 
 ```bash
-npx @sophiasuu/sophon discover --seed "best payroll software" --pattern "{seed} alternatives" --pattern "{seed} pricing"
+npx @sophonn/sophon discover --seed "best payroll software" --pattern "{seed} alternatives" --pattern "{seed} pricing"
 ```
 
 For full runs with per-step outputs:
 
 ```bash
-npx @sophiasuu/sophon run --seed "best payroll software" --framework sveltekit --site https://example.com --discover-output ./data/entities.json --generate-output ./src/routes --technical-output ./static --enrich-output ./data/enriched
+npx @sophonn/sophon run --seed "best payroll software" --framework sveltekit --site https://example.com --discover-output ./data/entities.json --generate-output ./src/routes --technical-output ./static --enrich-output ./data/enriched
 ```
 
 If the CLI is not built yet, install dependencies and run `npm run build` first.

@@ -1,5 +1,5 @@
 {
-  "name": "@sophiasuu/sophon",
+  "name": "@sophonn/sophon",
   "version": "0.1.0",
   "description": "Agentic programmatic SEO toolkit for modern web frameworks",
   "license": "MIT",
@@ -30,7 +30,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
-    "sophon": "./dist/cli.js"
+    "sophon": "dist/cli.js"
   },
   "exports": {
     ".": {
