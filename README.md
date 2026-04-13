@@ -54,6 +54,7 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 │   ├── core/
 │   ├── index.ts
 │   └── types.ts
+├── tests/
 ├── source/skills/
 ├── package.json
 ├── tsconfig.json
@@ -301,6 +302,9 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - Shared intent classification engine reusable via programmatic API
 - `sophon teach` onboarding flow that writes project context to `.sophon.md`
 - Multi-provider agent skill system (Claude, Cursor, Codex, VS Code)
+- Output path traversal protection (all `--output` flags validated against cwd)
+- XSS-safe template hydration (`<`/`>` escaped in entity values)
+- 145 tests across 12 test files (vitest)
 
 **What Sophon does not do ❌:**
 

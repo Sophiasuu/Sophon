@@ -21,6 +21,21 @@ Skills live in `source/skills/` and are distributed to `.claude/skills/`, `.agen
 npm run build:skills
 ```
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `sophon init` | Create `sophon.config.json` with framework auto-detection |
+| `sophon teach` | Interactive onboarding — writes project context to `.sophon.md` |
+| `sophon discover` | Normalize entities from a seed keyword or CSV |
+| `sophon propose` | Generate intent-aware entity suggestions with priority and confidence |
+| `sophon generate` | Scaffold one page per entity for the target framework |
+| `sophon technical` | Emit sitemap, robots.txt, JSON-LD, internal links, hreflang |
+| `sophon enrich` | AI content enrichment via Claude (requires `ANTHROPIC_API_KEY`) |
+| `sophon run` | Full pipeline: discover → generate → technical → enrich |
+| `sophon audit` | Scan existing SEO implementation, weighted 0-100 score |
+| `sophon score` | Entity health scoring (metadata, intent, slug quality) |
+
 ## Quick Start
 
 ```bash
@@ -31,10 +46,30 @@ npx @sophonn/sophon run \
   --site https://example.com
 
 # Step by step
+npx @sophonn/sophon teach
 npx @sophonn/sophon discover --seed "best payroll software"
+npx @sophonn/sophon propose --seed "best payroll software"
 npx @sophonn/sophon generate --framework nextjs
 npx @sophonn/sophon technical --site https://example.com
+npx @sophonn/sophon audit
+npx @sophonn/sophon score
 ```
+
+## Security
+
+- All `--output` flags are validated against `process.cwd()` to prevent path traversal
+- Entity values are XSS-escaped during template hydration (`<`/`>` → Unicode escapes)
+- Template hydration uses single-pass regex replacement, not chained string substitution
+
+## Testing
+
+145 tests across 12 test files. Run with:
+
+```bash
+npm test
+```
+
+Covers: utils, discover, intent, propose, score, sections, technical, generate, enrich, audit, teach, and all 5 framework adapters.
 
 ## Example User Prompts
 

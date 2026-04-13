@@ -35,4 +35,4 @@ export type {
   DiscoverMode,
 } from "./types";
 export { DEFAULT_PATTERNS } from "./core/discover";
-export { slugify, stableHash, gradeFromScore } from "./core/utils";
+export { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath } from "./core/utils";

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { slugify, stableHash, gradeFromScore } from "../src/core/utils";
+import path from "node:path";
+import { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath } from "../src/core/utils";
 
 describe("slugify", () => {
   it("lowercases and trims", () => {
@@ -60,5 +61,54 @@ describe("gradeFromScore", () => {
   it("returns F for below 45", () => {
     expect(gradeFromScore(44)).toBe("F");
     expect(gradeFromScore(0)).toBe("F");
+  });
+});
+
+describe("safeJsonStringify", () => {
+  it("produces valid JSON for strings", () => {
+    expect(safeJsonStringify("hello")).toBe('"hello"');
+  });
+
+  it("escapes < and > as unicode escapes", () => {
+    const result = safeJsonStringify("<script>alert(1)</script>");
+    expect(result).not.toContain("<");
+    expect(result).not.toContain(">");
+    expect(result).toContain("\\u003c");
+    expect(result).toContain("\\u003e");
+  });
+
+  it("prevents </script> injection", () => {
+    const result = safeJsonStringify('</script><script>alert("xss")</script>');
+    expect(result).not.toContain("</script>");
+  });
+
+  it("handles arrays and objects", () => {
+    const result = safeJsonStringify(["<b>bold</b>", "normal"]);
+    expect(result).not.toContain("<");
+    const parsed = JSON.parse(result.replace(/\\u003c/g, "<").replace(/\\u003e/g, ">"));
+    expect(parsed).toEqual(["<b>bold</b>", "normal"]);
+  });
+
+  it("handles null and numbers", () => {
+    expect(safeJsonStringify(null)).toBe("null");
+    expect(safeJsonStringify(42)).toBe("42");
+  });
+});
+
+describe("assertSafePath", () => {
+  it("accepts paths within cwd", () => {
+    expect(() => assertSafePath(path.join(process.cwd(), "output", "file.tsx"))).not.toThrow();
+  });
+
+  it("accepts relative paths that resolve within cwd", () => {
+    expect(() => assertSafePath("output/file.tsx")).not.toThrow();
+  });
+
+  it("rejects paths that escape cwd via traversal", () => {
+    expect(() => assertSafePath("../../etc/passwd")).toThrow("Output path must be within the project directory");
+  });
+
+  it("rejects absolute paths outside cwd", () => {
+    expect(() => assertSafePath("/tmp/evil/output")).toThrow("Output path must be within the project directory");
   });
 });

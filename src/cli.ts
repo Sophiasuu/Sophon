@@ -14,6 +14,7 @@ import { audit } from "./core/audit";
 import { propose } from "./core/propose";
 import { scoreEntities } from "./core/score";
 import { teach } from "./core/teach";
+import { assertSafePath } from "./core/utils";
 import type { DiscoverResult, Framework } from "./types";
 
 type SophonConfig = {
@@ -30,6 +31,11 @@ function asString(value: string | boolean | undefined): string | undefined {
 
 function asStringArray(values: Array<string | boolean> | undefined): string[] {
   return (values ?? []).filter((value): value is string => typeof value === "string");
+}
+
+function validateOutputPath(outputPath: string): string {
+  assertSafePath(outputPath);
+  return path.resolve(outputPath);
 }
 
 function parseCli() {
@@ -181,16 +187,23 @@ async function initCommand(values: ReturnType<typeof parseCli>["values"]): Promi
   );
 }
 
+function safeOutput(value: string | undefined): string | undefined {
+  if (value !== undefined) {
+    validateOutputPath(value);
+  }
+  return value;
+}
+
 async function discoverCommand(values: ReturnType<typeof parseCli>["values"]): Promise<DiscoverResult> {
   const result = await discover({
     csv: asString(values.csv),
     seed: asString(values.seed),
-    output: asString(values["discover-output"]) ?? asString(values.output),
+    output: safeOutput(asString(values["discover-output"]) ?? asString(values.output)),
     titleTemplate: asString(values["title-template"]),
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)],
   });
 
-  const outputPath = asString(values["discover-output"]) ?? asString(values.output) ?? path.join("data", "entities.json");
+  const outputPath = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? path.join("data", "entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}\n`);
   return result;
 }
@@ -209,7 +222,7 @@ async function proposeCommand(values: ReturnType<typeof parseCli>["values"]): Pr
   });
 
   const outputPath =
-    asString(values["propose-output"]) ?? asString(values.output) ?? path.join("data", "proposed-entities.json");
+    safeOutput(asString(values["propose-output"]) ?? asString(values.output)) ?? path.join("data", "proposed-entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, {
     force: Boolean(values.force),
   });
@@ -227,7 +240,7 @@ async function generateCommand(values: ReturnType<typeof parseCli>["values"]): P
   await generate({
     entities: payload.entities,
     framework,
-    output: asString(values["generate-output"]) ?? asString(values.output) ?? config?.pagesOutput,
+    output: safeOutput(asString(values["generate-output"]) ?? asString(values.output)) ?? config?.pagesOutput,
     template: asString(values.template),
     force: Boolean(values.force),
   });
@@ -246,7 +259,7 @@ async function technicalCommand(values: ReturnType<typeof parseCli>["values"]): 
   await technical({
     entities: payload.entities,
     site,
-    output: asString(values["technical-output"]) ?? asString(values.output) ?? config?.technicalOutput,
+    output: safeOutput(asString(values["technical-output"]) ?? asString(values.output)) ?? config?.technicalOutput,
     force: Boolean(values.force),
   });
 }
@@ -258,17 +271,17 @@ async function enrichCommand(values: ReturnType<typeof parseCli>["values"]): Pro
 
   await enrich({
     entities: payload.entities,
-    output: asString(values["enrich-output"]) ?? asString(values.output) ?? config?.enrichOutput,
+    output: safeOutput(asString(values["enrich-output"]) ?? asString(values.output)) ?? config?.enrichOutput,
   });
 }
 
 async function runCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
   const config = await readConfig();
   const framework = await resolveFramework(asString(values.framework));
-  const discoverOutput = asString(values["discover-output"]) ?? asString(values.output) ?? config?.entitiesPath ?? path.join("data", "entities.json");
-  const generateOutput = asString(values["generate-output"]) ?? config?.pagesOutput ?? defaultOutputRoot(framework);
-  const technicalOutput = asString(values["technical-output"]) ?? config?.technicalOutput ?? "public";
-  const enrichOutput = asString(values["enrich-output"]) ?? config?.enrichOutput ?? path.join("data", "enriched");
+  const discoverOutput = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const generateOutput = safeOutput(asString(values["generate-output"])) ?? config?.pagesOutput ?? defaultOutputRoot(framework);
+  const technicalOutput = safeOutput(asString(values["technical-output"])) ?? config?.technicalOutput ?? "public";
+  const enrichOutput = safeOutput(asString(values["enrich-output"])) ?? config?.enrichOutput ?? path.join("data", "enriched");
 
   console.log("Running discover...");
   const result = await discover({
@@ -326,7 +339,7 @@ async function scoreCommand(values: ReturnType<typeof parseCli>["values"]): Prom
 
   const result = scoreEntities(payload.entities);
 
-  const outputPath = asString(values.output) ?? path.join("data", "scores.json");
+  const outputPath = safeOutput(asString(values.output)) ?? path.join("data", "scores.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, {
     force: Boolean(values.force),
   });

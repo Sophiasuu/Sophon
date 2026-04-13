@@ -2,6 +2,7 @@
 import { readFile } from "fs/promises";
 
 // src/core/utils.ts
+import path from "path";
 function slugify(value) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
 }
@@ -13,12 +14,22 @@ function stableHash(value) {
   }
   return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
 }
+function safeJsonStringify(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+}
 function gradeFromScore(score) {
   if (score >= 90) return "A";
   if (score >= 75) return "B";
   if (score >= 60) return "C";
   if (score >= 45) return "D";
   return "F";
+}
+function assertSafePath(filePath) {
+  const resolved = path.resolve(filePath);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
+    throw new Error(`Output path must be within the project directory: ${filePath}`);
+  }
 }
 
 // src/core/discover.ts
@@ -278,7 +289,7 @@ function propose(options) {
 
 // src/core/generate.ts
 import { mkdir, readFile as readFile2, writeFile } from "fs/promises";
-import path from "path";
+import path2 from "path";
 
 // src/adapters/astro.ts
 function astro(_options) {
@@ -695,13 +706,13 @@ function defaultOutputRoot(framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return path.join("src", "pages");
+      return path2.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return path.join("src", "routes");
+      return path2.join("src", "routes");
     case "remix":
-      return path.join("app", "routes");
+      return path2.join("app", "routes");
   }
 }
 function countPopulatedMetadataFields(entity) {
@@ -718,12 +729,12 @@ function isYmylEntity(entity) {
 }
 function buildHydrationMap(entity) {
   return {
-    "__ENTITY_NAME__": JSON.stringify(entity.name),
-    "__ENTITY_SLUG__": JSON.stringify(entity.slug),
-    "__ENTITY_TITLE__": JSON.stringify(entity.metadata.title ?? entity.name),
-    "__ENTITY_DESCRIPTION__": JSON.stringify(entity.metadata.description ?? `Explore ${entity.name}.`),
-    "__ENTITY_TAGS__": JSON.stringify(entity.metadata.tags ?? []),
-    "__ENTITY_ATTRIBUTES__": JSON.stringify(entity.metadata.attributes ?? {}, null, 2)
+    "__ENTITY_NAME__": safeJsonStringify(entity.name),
+    "__ENTITY_SLUG__": safeJsonStringify(entity.slug),
+    "__ENTITY_TITLE__": safeJsonStringify(entity.metadata.title ?? entity.name),
+    "__ENTITY_DESCRIPTION__": safeJsonStringify(entity.metadata.description ?? `Explore ${entity.name}.`),
+    "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
+    "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {})
   };
 }
 function hydrateTemplate(template, entity, framework) {
@@ -747,15 +758,15 @@ function buildFrameworkTemplate(options, entity) {
 function buildMainPagePath(framework, outputRoot, slug) {
   switch (framework) {
     case "nextjs":
-      return path.join(outputRoot, slug, "page.tsx");
+      return path2.join(outputRoot, slug, "page.tsx");
     case "astro":
-      return path.join(outputRoot, `${slug}.astro`);
+      return path2.join(outputRoot, `${slug}.astro`);
     case "nuxt":
-      return path.join(outputRoot, `${slug}.vue`);
+      return path2.join(outputRoot, `${slug}.vue`);
     case "sveltekit":
-      return path.join(outputRoot, slug, "+page.svelte");
+      return path2.join(outputRoot, slug, "+page.svelte");
     case "remix":
-      return path.join(outputRoot, `${slug}.tsx`);
+      return path2.join(outputRoot, `${slug}.tsx`);
   }
 }
 function buildAdditionalFiles(framework, outputRoot, entity) {
@@ -764,7 +775,7 @@ function buildAdditionalFiles(framework, outputRoot, entity) {
   }
   return [
     {
-      filePath: path.join(outputRoot, entity.slug, "+page.ts"),
+      filePath: path2.join(outputRoot, entity.slug, "+page.ts"),
       content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework)
     }
   ];
@@ -788,7 +799,7 @@ async function writeGeneratedFile(filePath, content, options = {}) {
     } catch {
     }
   }
-  await mkdir(path.dirname(filePath), { recursive: true });
+  await mkdir(path2.dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
   console.log(`Generated file -> ${filePath}`);
   return true;
@@ -848,7 +859,7 @@ async function generate(options) {
 }
 
 // src/core/technical.ts
-import path2 from "path";
+import path3 from "path";
 function todayDate() {
   return (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 }
@@ -950,32 +961,32 @@ function buildInternalLinks(entities) {
 async function technical(options) {
   const outputRoot = options.output ?? "public";
   const siteUrl = options.site.replace(/\/$/, "");
-  const technicalRoot = path2.join(outputRoot, "sophon");
+  const technicalRoot = path3.join(outputRoot, "sophon");
   const sitemap = buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
   const internalLinks = buildInternalLinks(options.entities);
   const hreflang = buildHreflang(siteUrl, options.entities);
   await Promise.all([
-    writeGeneratedFile(path2.join(outputRoot, "sitemap.xml"), sitemap, {
+    writeGeneratedFile(path3.join(outputRoot, "sitemap.xml"), sitemap, {
       force: options.force
     }),
-    writeGeneratedFile(path2.join(outputRoot, "robots.txt"), robots, {
+    writeGeneratedFile(path3.join(outputRoot, "robots.txt"), robots, {
       force: options.force
     }),
-    writeGeneratedFile(path2.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
+    writeGeneratedFile(path3.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
 `, {
       force: options.force
     }),
     writeGeneratedFile(
-      path2.join(technicalRoot, "internal-links.json"),
+      path3.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
 `,
       {
         force: options.force
       }
     ),
-    writeGeneratedFile(path2.join(technicalRoot, "hreflang.txt"), hreflang, {
+    writeGeneratedFile(path3.join(technicalRoot, "hreflang.txt"), hreflang, {
       force: options.force
     })
   ]);
@@ -986,7 +997,7 @@ async function technical(options) {
 }
 
 // src/core/enrich.ts
-import path3 from "path";
+import path4 from "path";
 import Anthropic from "@anthropic-ai/sdk";
 var MODEL = "claude-sonnet-4-20250514";
 var SYSTEM_PROMPT = `You are a programmatic SEO content generator.
@@ -1033,7 +1044,7 @@ async function enrich(options) {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
   }
-  const outputRoot = options.output ?? path3.join("data", "enriched");
+  const outputRoot = options.output ?? path4.join("data", "enriched");
   const client = new Anthropic({ apiKey });
   for (const entity of options.entities) {
     try {
@@ -1051,7 +1062,7 @@ async function enrich(options) {
       });
       const parsed = JSON.parse(messageText(response));
       await writeGeneratedFile(
-        path3.join(outputRoot, entity.slug, "content.json"),
+        path4.join(outputRoot, entity.slug, "content.json"),
         `${JSON.stringify(parsed, null, 2)}
 `
       );
@@ -1063,7 +1074,7 @@ async function enrich(options) {
 
 // src/core/teach.ts
 import { writeFile as writeFile2 } from "fs/promises";
-import path4 from "path";
+import path5 from "path";
 import { createInterface } from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 var VALID_FRAMEWORKS = ["nextjs", "astro", "nuxt", "sveltekit", "remix"];
@@ -1159,7 +1170,7 @@ async function teach() {
       entitySource: entitySource.toLowerCase(),
       aiEnrichment: aiEnrichment.toLowerCase()
     };
-    const outputPath = path4.join(process.cwd(), ".sophon.md");
+    const outputPath = path5.join(process.cwd(), ".sophon.md");
     await writeFile2(outputPath, formatContext(answers), "utf8");
     console.log(`
 Context saved to ${outputPath}`);
@@ -1171,7 +1182,7 @@ Context saved to ${outputPath}`);
 
 // src/core/audit.ts
 import { access, readdir, readFile as readFile3 } from "fs/promises";
-import path5 from "path";
+import path6 from "path";
 var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
 async function exists(filePath) {
   try {
@@ -1189,7 +1200,7 @@ async function walkFiles(root) {
       if (IGNORED_DIRS.has(entry.name)) {
         continue;
       }
-      const fullPath = path5.join(current, entry.name);
+      const fullPath = path6.join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else {
@@ -1221,13 +1232,13 @@ async function audit(options = {}) {
   const checks = [
     {
       label: "Sitemap",
-      implemented: await exists(path5.join(root, "public", "sitemap.xml")) || await exists(path5.join(root, "static", "sitemap.xml")) || await exists(path5.join(root, "sitemap.xml")),
+      implemented: await exists(path6.join(root, "public", "sitemap.xml")) || await exists(path6.join(root, "static", "sitemap.xml")) || await exists(path6.join(root, "sitemap.xml")),
       weight: 15,
       details: "Expected one of: public/sitemap.xml, static/sitemap.xml, sitemap.xml"
     },
     {
       label: "Robots",
-      implemented: await exists(path5.join(root, "public", "robots.txt")) || await exists(path5.join(root, "static", "robots.txt")) || await exists(path5.join(root, "robots.txt")),
+      implemented: await exists(path6.join(root, "public", "robots.txt")) || await exists(path6.join(root, "static", "robots.txt")) || await exists(path6.join(root, "robots.txt")),
       weight: 10,
       details: "Expected one of: public/robots.txt, static/robots.txt, robots.txt"
     },
@@ -1257,7 +1268,7 @@ async function audit(options = {}) {
     },
     {
       label: "404 handling",
-      implemented: await exists(path5.join(root, "app", "not-found.tsx")) || await exists(path5.join(root, "pages", "404.tsx")) || await exists(path5.join(root, "src", "routes", "+error.svelte")),
+      implemented: await exists(path6.join(root, "app", "not-found.tsx")) || await exists(path6.join(root, "pages", "404.tsx")) || await exists(path6.join(root, "src", "routes", "+error.svelte")),
       weight: 5,
       details: "Detected common framework 404 conventions"
     },
@@ -1340,6 +1351,7 @@ function scoreEntities(entities) {
 }
 export {
   DEFAULT_PATTERNS,
+  assertSafePath,
   astro,
   audit,
   classifyIntent,
@@ -1353,6 +1365,7 @@ export {
   propose,
   remix,
   renderSections,
+  safeJsonStringify,
   scoreEntities,
   slugify,
   stableHash,

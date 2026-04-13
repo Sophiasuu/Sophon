@@ -9,6 +9,7 @@ import { buildSvelteKitPageModule } from "../adapters/sveltekit-page";
 import { sveltekit } from "../adapters/sveltekit";
 import { classifyIntent } from "./intent";
 import { getSections, renderSections } from "./sections";
+import { safeJsonStringify } from "./utils";
 import type { EntityRecord, Framework, GenerateOptions, GenerateSummary } from "../types";
 
 const YMYL_TERMS = [
@@ -101,19 +102,19 @@ function countPopulatedMetadataFields(entity: EntityRecord): number {
     .length;
 }
 
-function isYmylEntity(entity: EntityRecord): boolean {
+export function isYmylEntity(entity: EntityRecord): boolean {
   const haystack = [entity.name, entity.seedKeyword ?? "", ...(entity.metadata.tags ?? [])].join(" ").toLowerCase();
   return YMYL_TERMS.some((term) => haystack.includes(term));
 }
 
-function buildHydrationMap(entity: EntityRecord): Record<string, string> {
+export function buildHydrationMap(entity: EntityRecord): Record<string, string> {
   return {
-    "__ENTITY_NAME__": JSON.stringify(entity.name),
-    "__ENTITY_SLUG__": JSON.stringify(entity.slug),
-    "__ENTITY_TITLE__": JSON.stringify(entity.metadata.title ?? entity.name),
-    "__ENTITY_DESCRIPTION__": JSON.stringify(entity.metadata.description ?? `Explore ${entity.name}.`),
-    "__ENTITY_TAGS__": JSON.stringify(entity.metadata.tags ?? []),
-    "__ENTITY_ATTRIBUTES__": JSON.stringify(entity.metadata.attributes ?? {}, null, 2),
+    "__ENTITY_NAME__": safeJsonStringify(entity.name),
+    "__ENTITY_SLUG__": safeJsonStringify(entity.slug),
+    "__ENTITY_TITLE__": safeJsonStringify(entity.metadata.title ?? entity.name),
+    "__ENTITY_DESCRIPTION__": safeJsonStringify(entity.metadata.description ?? `Explore ${entity.name}.`),
+    "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
+    "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
   };
 }
 

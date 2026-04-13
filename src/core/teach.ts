@@ -5,7 +5,7 @@ import { stdin as input, stdout as output } from "node:process";
 
 import type { Framework } from "../types";
 
-type TeachAnswers = {
+export type TeachAnswers = {
   niche: string;
   siteUrl: string;
   framework: string;
@@ -42,7 +42,7 @@ async function askQuestion(rl: ReturnType<typeof createInterface>, question: str
   throw new Error("Too many invalid attempts. Run `sophon teach` again.");
 }
 
-function formatContext(answers: TeachAnswers): string {
+export function formatContext(answers: TeachAnswers): string {
   return `## Sophon Project Context
 
 - **Niche**: ${answers.niche}

@@ -2,7 +2,7 @@
 
 // src/cli.ts
 import { readFile as readFile4 } from "fs/promises";
-import path6 from "path";
+import path7 from "path";
 import { createInterface as createInterface2 } from "readline/promises";
 import { stdin as input2, stdout as output2 } from "process";
 import { parseArgs } from "util";
@@ -11,6 +11,7 @@ import { parseArgs } from "util";
 import { readFile } from "fs/promises";
 
 // src/core/utils.ts
+import path from "path";
 function slugify(value) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
 }
@@ -22,12 +23,22 @@ function stableHash(value) {
   }
   return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
 }
+function safeJsonStringify(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+}
 function gradeFromScore(score) {
   if (score >= 90) return "A";
   if (score >= 75) return "B";
   if (score >= 60) return "C";
   if (score >= 45) return "D";
   return "F";
+}
+function assertSafePath(filePath) {
+  const resolved = path.resolve(filePath);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
+    throw new Error(`Output path must be within the project directory: ${filePath}`);
+  }
 }
 
 // src/core/discover.ts
@@ -173,12 +184,12 @@ async function discover(options) {
 }
 
 // src/core/enrich.ts
-import path2 from "path";
+import path3 from "path";
 import Anthropic from "@anthropic-ai/sdk";
 
 // src/core/generate.ts
 import { mkdir, readFile as readFile2, writeFile } from "fs/promises";
-import path from "path";
+import path2 from "path";
 
 // src/adapters/astro.ts
 function astro(_options) {
@@ -647,13 +658,13 @@ function defaultOutputRoot(framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return path.join("src", "pages");
+      return path2.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return path.join("src", "routes");
+      return path2.join("src", "routes");
     case "remix":
-      return path.join("app", "routes");
+      return path2.join("app", "routes");
   }
 }
 function countPopulatedMetadataFields(entity) {
@@ -670,12 +681,12 @@ function isYmylEntity(entity) {
 }
 function buildHydrationMap(entity) {
   return {
-    "__ENTITY_NAME__": JSON.stringify(entity.name),
-    "__ENTITY_SLUG__": JSON.stringify(entity.slug),
-    "__ENTITY_TITLE__": JSON.stringify(entity.metadata.title ?? entity.name),
-    "__ENTITY_DESCRIPTION__": JSON.stringify(entity.metadata.description ?? `Explore ${entity.name}.`),
-    "__ENTITY_TAGS__": JSON.stringify(entity.metadata.tags ?? []),
-    "__ENTITY_ATTRIBUTES__": JSON.stringify(entity.metadata.attributes ?? {}, null, 2)
+    "__ENTITY_NAME__": safeJsonStringify(entity.name),
+    "__ENTITY_SLUG__": safeJsonStringify(entity.slug),
+    "__ENTITY_TITLE__": safeJsonStringify(entity.metadata.title ?? entity.name),
+    "__ENTITY_DESCRIPTION__": safeJsonStringify(entity.metadata.description ?? `Explore ${entity.name}.`),
+    "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
+    "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {})
   };
 }
 function hydrateTemplate(template, entity, framework) {
@@ -699,15 +710,15 @@ function buildFrameworkTemplate(options, entity) {
 function buildMainPagePath(framework, outputRoot, slug) {
   switch (framework) {
     case "nextjs":
-      return path.join(outputRoot, slug, "page.tsx");
+      return path2.join(outputRoot, slug, "page.tsx");
     case "astro":
-      return path.join(outputRoot, `${slug}.astro`);
+      return path2.join(outputRoot, `${slug}.astro`);
     case "nuxt":
-      return path.join(outputRoot, `${slug}.vue`);
+      return path2.join(outputRoot, `${slug}.vue`);
     case "sveltekit":
-      return path.join(outputRoot, slug, "+page.svelte");
+      return path2.join(outputRoot, slug, "+page.svelte");
     case "remix":
-      return path.join(outputRoot, `${slug}.tsx`);
+      return path2.join(outputRoot, `${slug}.tsx`);
   }
 }
 function buildAdditionalFiles(framework, outputRoot, entity) {
@@ -716,7 +727,7 @@ function buildAdditionalFiles(framework, outputRoot, entity) {
   }
   return [
     {
-      filePath: path.join(outputRoot, entity.slug, "+page.ts"),
+      filePath: path2.join(outputRoot, entity.slug, "+page.ts"),
       content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework)
     }
   ];
@@ -740,7 +751,7 @@ async function writeGeneratedFile(filePath, content, options = {}) {
     } catch {
     }
   }
-  await mkdir(path.dirname(filePath), { recursive: true });
+  await mkdir(path2.dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
   console.log(`Generated file -> ${filePath}`);
   return true;
@@ -845,7 +856,7 @@ async function enrich(options) {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
   }
-  const outputRoot = options.output ?? path2.join("data", "enriched");
+  const outputRoot = options.output ?? path3.join("data", "enriched");
   const client = new Anthropic({ apiKey });
   for (const entity of options.entities) {
     try {
@@ -863,7 +874,7 @@ async function enrich(options) {
       });
       const parsed = JSON.parse(messageText(response));
       await writeGeneratedFile(
-        path2.join(outputRoot, entity.slug, "content.json"),
+        path3.join(outputRoot, entity.slug, "content.json"),
         `${JSON.stringify(parsed, null, 2)}
 `
       );
@@ -874,7 +885,7 @@ async function enrich(options) {
 }
 
 // src/core/technical.ts
-import path3 from "path";
+import path4 from "path";
 function todayDate() {
   return (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 }
@@ -976,32 +987,32 @@ function buildInternalLinks(entities) {
 async function technical(options) {
   const outputRoot = options.output ?? "public";
   const siteUrl = options.site.replace(/\/$/, "");
-  const technicalRoot = path3.join(outputRoot, "sophon");
+  const technicalRoot = path4.join(outputRoot, "sophon");
   const sitemap = buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
   const internalLinks = buildInternalLinks(options.entities);
   const hreflang = buildHreflang(siteUrl, options.entities);
   await Promise.all([
-    writeGeneratedFile(path3.join(outputRoot, "sitemap.xml"), sitemap, {
+    writeGeneratedFile(path4.join(outputRoot, "sitemap.xml"), sitemap, {
       force: options.force
     }),
-    writeGeneratedFile(path3.join(outputRoot, "robots.txt"), robots, {
+    writeGeneratedFile(path4.join(outputRoot, "robots.txt"), robots, {
       force: options.force
     }),
-    writeGeneratedFile(path3.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
+    writeGeneratedFile(path4.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
 `, {
       force: options.force
     }),
     writeGeneratedFile(
-      path3.join(technicalRoot, "internal-links.json"),
+      path4.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
 `,
       {
         force: options.force
       }
     ),
-    writeGeneratedFile(path3.join(technicalRoot, "hreflang.txt"), hreflang, {
+    writeGeneratedFile(path4.join(technicalRoot, "hreflang.txt"), hreflang, {
       force: options.force
     })
   ]);
@@ -1013,7 +1024,7 @@ async function technical(options) {
 
 // src/core/audit.ts
 import { access, readdir, readFile as readFile3 } from "fs/promises";
-import path4 from "path";
+import path5 from "path";
 var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
 async function exists(filePath) {
   try {
@@ -1031,7 +1042,7 @@ async function walkFiles(root) {
       if (IGNORED_DIRS.has(entry.name)) {
         continue;
       }
-      const fullPath = path4.join(current, entry.name);
+      const fullPath = path5.join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else {
@@ -1063,13 +1074,13 @@ async function audit(options = {}) {
   const checks = [
     {
       label: "Sitemap",
-      implemented: await exists(path4.join(root, "public", "sitemap.xml")) || await exists(path4.join(root, "static", "sitemap.xml")) || await exists(path4.join(root, "sitemap.xml")),
+      implemented: await exists(path5.join(root, "public", "sitemap.xml")) || await exists(path5.join(root, "static", "sitemap.xml")) || await exists(path5.join(root, "sitemap.xml")),
       weight: 15,
       details: "Expected one of: public/sitemap.xml, static/sitemap.xml, sitemap.xml"
     },
     {
       label: "Robots",
-      implemented: await exists(path4.join(root, "public", "robots.txt")) || await exists(path4.join(root, "static", "robots.txt")) || await exists(path4.join(root, "robots.txt")),
+      implemented: await exists(path5.join(root, "public", "robots.txt")) || await exists(path5.join(root, "static", "robots.txt")) || await exists(path5.join(root, "robots.txt")),
       weight: 10,
       details: "Expected one of: public/robots.txt, static/robots.txt, robots.txt"
     },
@@ -1099,7 +1110,7 @@ async function audit(options = {}) {
     },
     {
       label: "404 handling",
-      implemented: await exists(path4.join(root, "app", "not-found.tsx")) || await exists(path4.join(root, "pages", "404.tsx")) || await exists(path4.join(root, "src", "routes", "+error.svelte")),
+      implemented: await exists(path5.join(root, "app", "not-found.tsx")) || await exists(path5.join(root, "pages", "404.tsx")) || await exists(path5.join(root, "src", "routes", "+error.svelte")),
       weight: 5,
       details: "Detected common framework 404 conventions"
     },
@@ -1244,7 +1255,7 @@ function scoreEntities(entities) {
 
 // src/core/teach.ts
 import { writeFile as writeFile2 } from "fs/promises";
-import path5 from "path";
+import path6 from "path";
 import { createInterface } from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 var VALID_FRAMEWORKS = ["nextjs", "astro", "nuxt", "sveltekit", "remix"];
@@ -1340,7 +1351,7 @@ async function teach() {
       entitySource: entitySource.toLowerCase(),
       aiEnrichment: aiEnrichment.toLowerCase()
     };
-    const outputPath = path5.join(process.cwd(), ".sophon.md");
+    const outputPath = path6.join(process.cwd(), ".sophon.md");
     await writeFile2(outputPath, formatContext(answers), "utf8");
     console.log(`
 Context saved to ${outputPath}`);
@@ -1356,6 +1367,10 @@ function asString(value) {
 }
 function asStringArray(values) {
   return (values ?? []).filter((value) => typeof value === "string");
+}
+function validateOutputPath(outputPath) {
+  assertSafePath(outputPath);
+  return path7.resolve(outputPath);
 }
 function parseCli() {
   return parseArgs({
@@ -1389,13 +1404,13 @@ function defaultOutputRoot2(framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return path6.join("src", "pages");
+      return path7.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return path6.join("src", "routes");
+      return path7.join("src", "routes");
     case "remix":
-      return path6.join("app", "routes");
+      return path7.join("app", "routes");
   }
 }
 async function readJsonIfExists(filePath) {
@@ -1410,7 +1425,7 @@ async function readJsonIfExists(filePath) {
   }
 }
 async function detectFramework() {
-  const packageJson = await readJsonIfExists(path6.join(process.cwd(), "package.json"));
+  const packageJson = await readJsonIfExists(path7.join(process.cwd(), "package.json"));
   const dependencies = {
     ...packageJson?.dependencies,
     ...packageJson?.devDependencies
@@ -1460,7 +1475,7 @@ async function resolveFramework(value) {
   return await detectFramework() ?? promptFramework();
 }
 async function readConfig() {
-  const config = await readJsonIfExists(path6.join(process.cwd(), "sophon.config.json"));
+  const config = await readJsonIfExists(path7.join(process.cwd(), "sophon.config.json"));
   return config;
 }
 async function loadDiscoverResult(filePath) {
@@ -1471,26 +1486,32 @@ async function initCommand(values) {
   const framework = await resolveFramework(asString(values.framework));
   const config = {
     framework,
-    entitiesPath: path6.join("data", "entities.json"),
+    entitiesPath: path7.join("data", "entities.json"),
     pagesOutput: defaultOutputRoot2(framework),
     technicalOutput: "public",
-    enrichOutput: path6.join("data", "enriched")
+    enrichOutput: path7.join("data", "enriched")
   };
   await writeGeneratedFile(
-    path6.join(process.cwd(), "sophon.config.json"),
+    path7.join(process.cwd(), "sophon.config.json"),
     `${JSON.stringify(config, null, 2)}
 `
   );
+}
+function safeOutput(value) {
+  if (value !== void 0) {
+    validateOutputPath(value);
+  }
+  return value;
 }
 async function discoverCommand(values) {
   const result = await discover({
     csv: asString(values.csv),
     seed: asString(values.seed),
-    output: asString(values["discover-output"]) ?? asString(values.output),
+    output: safeOutput(asString(values["discover-output"]) ?? asString(values.output)),
     titleTemplate: asString(values["title-template"]),
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)]
   });
-  const outputPath = asString(values["discover-output"]) ?? asString(values.output) ?? path6.join("data", "entities.json");
+  const outputPath = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? path7.join("data", "entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `);
   return result;
@@ -1505,7 +1526,7 @@ async function proposeCommand(values) {
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)],
     limit: Number.parseInt(asString(values.limit) ?? "", 10) || void 0
   });
-  const outputPath = asString(values["propose-output"]) ?? asString(values.output) ?? path6.join("data", "proposed-entities.json");
+  const outputPath = safeOutput(asString(values["propose-output"]) ?? asString(values.output)) ?? path7.join("data", "proposed-entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `, {
     force: Boolean(values.force)
@@ -1515,20 +1536,20 @@ async function proposeCommand(values) {
 }
 async function generateCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path6.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path7.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const framework = await resolveFramework(asString(values.framework));
   await generate({
     entities: payload.entities,
     framework,
-    output: asString(values["generate-output"]) ?? asString(values.output) ?? config?.pagesOutput,
+    output: safeOutput(asString(values["generate-output"]) ?? asString(values.output)) ?? config?.pagesOutput,
     template: asString(values.template),
     force: Boolean(values.force)
   });
 }
 async function technicalCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path6.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path7.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const site = asString(values.site);
   if (!site) {
@@ -1537,26 +1558,26 @@ async function technicalCommand(values) {
   await technical({
     entities: payload.entities,
     site,
-    output: asString(values["technical-output"]) ?? asString(values.output) ?? config?.technicalOutput,
+    output: safeOutput(asString(values["technical-output"]) ?? asString(values.output)) ?? config?.technicalOutput,
     force: Boolean(values.force)
   });
 }
 async function enrichCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path6.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path7.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   await enrich({
     entities: payload.entities,
-    output: asString(values["enrich-output"]) ?? asString(values.output) ?? config?.enrichOutput
+    output: safeOutput(asString(values["enrich-output"]) ?? asString(values.output)) ?? config?.enrichOutput
   });
 }
 async function runCommand(values) {
   const config = await readConfig();
   const framework = await resolveFramework(asString(values.framework));
-  const discoverOutput = asString(values["discover-output"]) ?? asString(values.output) ?? config?.entitiesPath ?? path6.join("data", "entities.json");
-  const generateOutput = asString(values["generate-output"]) ?? config?.pagesOutput ?? defaultOutputRoot2(framework);
-  const technicalOutput = asString(values["technical-output"]) ?? config?.technicalOutput ?? "public";
-  const enrichOutput = asString(values["enrich-output"]) ?? config?.enrichOutput ?? path6.join("data", "enriched");
+  const discoverOutput = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? config?.entitiesPath ?? path7.join("data", "entities.json");
+  const generateOutput = safeOutput(asString(values["generate-output"])) ?? config?.pagesOutput ?? defaultOutputRoot2(framework);
+  const technicalOutput = safeOutput(asString(values["technical-output"])) ?? config?.technicalOutput ?? "public";
+  const enrichOutput = safeOutput(asString(values["enrich-output"])) ?? config?.enrichOutput ?? path7.join("data", "enriched");
   console.log("Running discover...");
   const result = await discover({
     csv: asString(values.csv),
@@ -1601,10 +1622,10 @@ async function auditCommand() {
 }
 async function scoreCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path6.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path7.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const result = scoreEntities(payload.entities);
-  const outputPath = asString(values.output) ?? path6.join("data", "scores.json");
+  const outputPath = safeOutput(asString(values.output)) ?? path7.join("data", "scores.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `, {
     force: Boolean(values.force)

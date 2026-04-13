@@ -155,6 +155,13 @@ declare function remix(_options: GenerateOptions): string;
 
 declare function slugify(value: string): string;
 declare function stableHash(value: string): string;
+/**
+ * JSON.stringify that also escapes < and > as Unicode escapes.
+ * Prevents </script> injection when JSON values appear inside HTML <script> tags
+ * (e.g. Nuxt .vue and SvelteKit .svelte files).
+ */
+declare function safeJsonStringify(value: unknown): string;
 declare function gradeFromScore(score: number): string;
+declare function assertSafePath(filePath: string): void;
 
-export { type AuditCheck, type AuditResult, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EntityRecord, type EntityScore, type Framework, type GenerateOptions, type GenerateSummary, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type ScoreCheck, type ScoreResult, type TechnicalOptions, astro, audit, classifyIntent, discover, enrich, generate, getSections, gradeFromScore, nextjs, nuxt, propose, remix, renderSections, scoreEntities, slugify, stableHash, sveltekit, teach, technical };
+export { type AuditCheck, type AuditResult, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EntityRecord, type EntityScore, type Framework, type GenerateOptions, type GenerateSummary, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type ScoreCheck, type ScoreResult, type TechnicalOptions, assertSafePath, astro, audit, classifyIntent, discover, enrich, generate, getSections, gradeFromScore, nextjs, nuxt, propose, remix, renderSections, safeJsonStringify, scoreEntities, slugify, stableHash, sveltekit, teach, technical };

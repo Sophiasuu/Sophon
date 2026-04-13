@@ -41,14 +41,14 @@ Return only valid JSON in this exact shape, no markdown, no preamble:
   "warnings": []
 }`;
 
-type AnthropicMessageResponse = {
+export type AnthropicMessageResponse = {
   content: Array<{
     type: string;
     text?: string;
   }>;
 };
 
-function messageText(response: AnthropicMessageResponse): string {
+export function messageText(response: AnthropicMessageResponse): string {
   return response.content
     .filter((block) => block.type === "text" && typeof block.text === "string")
     .map((block) => block.text as string)
@@ -56,7 +56,7 @@ function messageText(response: AnthropicMessageResponse): string {
     .trim();
 }
 
-function buildUserPrompt(entity: EntityRecord): string {
+export function buildUserPrompt(entity: EntityRecord): string {
   return JSON.stringify({ entity }, null, 2);
 }
 

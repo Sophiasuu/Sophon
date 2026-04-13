@@ -31,6 +31,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var src_exports = {};
 __export(src_exports, {
   DEFAULT_PATTERNS: () => DEFAULT_PATTERNS,
+  assertSafePath: () => assertSafePath,
   astro: () => astro,
   audit: () => audit,
   classifyIntent: () => classifyIntent,
@@ -44,6 +45,7 @@ __export(src_exports, {
   propose: () => propose,
   remix: () => remix,
   renderSections: () => renderSections,
+  safeJsonStringify: () => safeJsonStringify,
   scoreEntities: () => scoreEntities,
   slugify: () => slugify,
   stableHash: () => stableHash,
@@ -57,6 +59,7 @@ module.exports = __toCommonJS(src_exports);
 var import_promises = require("fs/promises");
 
 // src/core/utils.ts
+var import_node_path = __toESM(require("path"));
 function slugify(value) {
   return value.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
 }
@@ -68,12 +71,22 @@ function stableHash(value) {
   }
   return Math.abs(hash >>> 0).toString(16).padStart(8, "0");
 }
+function safeJsonStringify(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+}
 function gradeFromScore(score) {
   if (score >= 90) return "A";
   if (score >= 75) return "B";
   if (score >= 60) return "C";
   if (score >= 45) return "D";
   return "F";
+}
+function assertSafePath(filePath) {
+  const resolved = import_node_path.default.resolve(filePath);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + import_node_path.default.sep) && resolved !== cwd) {
+    throw new Error(`Output path must be within the project directory: ${filePath}`);
+  }
 }
 
 // src/core/discover.ts
@@ -333,7 +346,7 @@ function propose(options) {
 
 // src/core/generate.ts
 var import_promises2 = require("fs/promises");
-var import_node_path = __toESM(require("path"));
+var import_node_path2 = __toESM(require("path"));
 
 // src/adapters/astro.ts
 function astro(_options) {
@@ -750,13 +763,13 @@ function defaultOutputRoot(framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return import_node_path.default.join("src", "pages");
+      return import_node_path2.default.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return import_node_path.default.join("src", "routes");
+      return import_node_path2.default.join("src", "routes");
     case "remix":
-      return import_node_path.default.join("app", "routes");
+      return import_node_path2.default.join("app", "routes");
   }
 }
 function countPopulatedMetadataFields(entity) {
@@ -773,12 +786,12 @@ function isYmylEntity(entity) {
 }
 function buildHydrationMap(entity) {
   return {
-    "__ENTITY_NAME__": JSON.stringify(entity.name),
-    "__ENTITY_SLUG__": JSON.stringify(entity.slug),
-    "__ENTITY_TITLE__": JSON.stringify(entity.metadata.title ?? entity.name),
-    "__ENTITY_DESCRIPTION__": JSON.stringify(entity.metadata.description ?? `Explore ${entity.name}.`),
-    "__ENTITY_TAGS__": JSON.stringify(entity.metadata.tags ?? []),
-    "__ENTITY_ATTRIBUTES__": JSON.stringify(entity.metadata.attributes ?? {}, null, 2)
+    "__ENTITY_NAME__": safeJsonStringify(entity.name),
+    "__ENTITY_SLUG__": safeJsonStringify(entity.slug),
+    "__ENTITY_TITLE__": safeJsonStringify(entity.metadata.title ?? entity.name),
+    "__ENTITY_DESCRIPTION__": safeJsonStringify(entity.metadata.description ?? `Explore ${entity.name}.`),
+    "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
+    "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {})
   };
 }
 function hydrateTemplate(template, entity, framework) {
@@ -802,15 +815,15 @@ function buildFrameworkTemplate(options, entity) {
 function buildMainPagePath(framework, outputRoot, slug) {
   switch (framework) {
     case "nextjs":
-      return import_node_path.default.join(outputRoot, slug, "page.tsx");
+      return import_node_path2.default.join(outputRoot, slug, "page.tsx");
     case "astro":
-      return import_node_path.default.join(outputRoot, `${slug}.astro`);
+      return import_node_path2.default.join(outputRoot, `${slug}.astro`);
     case "nuxt":
-      return import_node_path.default.join(outputRoot, `${slug}.vue`);
+      return import_node_path2.default.join(outputRoot, `${slug}.vue`);
     case "sveltekit":
-      return import_node_path.default.join(outputRoot, slug, "+page.svelte");
+      return import_node_path2.default.join(outputRoot, slug, "+page.svelte");
     case "remix":
-      return import_node_path.default.join(outputRoot, `${slug}.tsx`);
+      return import_node_path2.default.join(outputRoot, `${slug}.tsx`);
   }
 }
 function buildAdditionalFiles(framework, outputRoot, entity) {
@@ -819,7 +832,7 @@ function buildAdditionalFiles(framework, outputRoot, entity) {
   }
   return [
     {
-      filePath: import_node_path.default.join(outputRoot, entity.slug, "+page.ts"),
+      filePath: import_node_path2.default.join(outputRoot, entity.slug, "+page.ts"),
       content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework)
     }
   ];
@@ -843,7 +856,7 @@ async function writeGeneratedFile(filePath, content, options = {}) {
     } catch {
     }
   }
-  await (0, import_promises2.mkdir)(import_node_path.default.dirname(filePath), { recursive: true });
+  await (0, import_promises2.mkdir)(import_node_path2.default.dirname(filePath), { recursive: true });
   await (0, import_promises2.writeFile)(filePath, content, "utf8");
   console.log(`Generated file -> ${filePath}`);
   return true;
@@ -903,7 +916,7 @@ async function generate(options) {
 }
 
 // src/core/technical.ts
-var import_node_path2 = __toESM(require("path"));
+var import_node_path3 = __toESM(require("path"));
 function todayDate() {
   return (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 }
@@ -1005,32 +1018,32 @@ function buildInternalLinks(entities) {
 async function technical(options) {
   const outputRoot = options.output ?? "public";
   const siteUrl = options.site.replace(/\/$/, "");
-  const technicalRoot = import_node_path2.default.join(outputRoot, "sophon");
+  const technicalRoot = import_node_path3.default.join(outputRoot, "sophon");
   const sitemap = buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
   const internalLinks = buildInternalLinks(options.entities);
   const hreflang = buildHreflang(siteUrl, options.entities);
   await Promise.all([
-    writeGeneratedFile(import_node_path2.default.join(outputRoot, "sitemap.xml"), sitemap, {
+    writeGeneratedFile(import_node_path3.default.join(outputRoot, "sitemap.xml"), sitemap, {
       force: options.force
     }),
-    writeGeneratedFile(import_node_path2.default.join(outputRoot, "robots.txt"), robots, {
+    writeGeneratedFile(import_node_path3.default.join(outputRoot, "robots.txt"), robots, {
       force: options.force
     }),
-    writeGeneratedFile(import_node_path2.default.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
+    writeGeneratedFile(import_node_path3.default.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}
 `, {
       force: options.force
     }),
     writeGeneratedFile(
-      import_node_path2.default.join(technicalRoot, "internal-links.json"),
+      import_node_path3.default.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
 `,
       {
         force: options.force
       }
     ),
-    writeGeneratedFile(import_node_path2.default.join(technicalRoot, "hreflang.txt"), hreflang, {
+    writeGeneratedFile(import_node_path3.default.join(technicalRoot, "hreflang.txt"), hreflang, {
       force: options.force
     })
   ]);
@@ -1041,7 +1054,7 @@ async function technical(options) {
 }
 
 // src/core/enrich.ts
-var import_node_path3 = __toESM(require("path"));
+var import_node_path4 = __toESM(require("path"));
 var import_sdk = __toESM(require("@anthropic-ai/sdk"));
 var MODEL = "claude-sonnet-4-20250514";
 var SYSTEM_PROMPT = `You are a programmatic SEO content generator.
@@ -1088,7 +1101,7 @@ async function enrich(options) {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
   }
-  const outputRoot = options.output ?? import_node_path3.default.join("data", "enriched");
+  const outputRoot = options.output ?? import_node_path4.default.join("data", "enriched");
   const client = new import_sdk.default({ apiKey });
   for (const entity of options.entities) {
     try {
@@ -1106,7 +1119,7 @@ async function enrich(options) {
       });
       const parsed = JSON.parse(messageText(response));
       await writeGeneratedFile(
-        import_node_path3.default.join(outputRoot, entity.slug, "content.json"),
+        import_node_path4.default.join(outputRoot, entity.slug, "content.json"),
         `${JSON.stringify(parsed, null, 2)}
 `
       );
@@ -1118,7 +1131,7 @@ async function enrich(options) {
 
 // src/core/teach.ts
 var import_promises3 = require("fs/promises");
-var import_node_path4 = __toESM(require("path"));
+var import_node_path5 = __toESM(require("path"));
 var import_promises4 = require("readline/promises");
 var import_node_process = require("process");
 var VALID_FRAMEWORKS = ["nextjs", "astro", "nuxt", "sveltekit", "remix"];
@@ -1214,7 +1227,7 @@ async function teach() {
       entitySource: entitySource.toLowerCase(),
       aiEnrichment: aiEnrichment.toLowerCase()
     };
-    const outputPath = import_node_path4.default.join(process.cwd(), ".sophon.md");
+    const outputPath = import_node_path5.default.join(process.cwd(), ".sophon.md");
     await (0, import_promises3.writeFile)(outputPath, formatContext(answers), "utf8");
     console.log(`
 Context saved to ${outputPath}`);
@@ -1226,7 +1239,7 @@ Context saved to ${outputPath}`);
 
 // src/core/audit.ts
 var import_promises5 = require("fs/promises");
-var import_node_path5 = __toESM(require("path"));
+var import_node_path6 = __toESM(require("path"));
 var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
 async function exists(filePath) {
   try {
@@ -1244,7 +1257,7 @@ async function walkFiles(root) {
       if (IGNORED_DIRS.has(entry.name)) {
         continue;
       }
-      const fullPath = import_node_path5.default.join(current, entry.name);
+      const fullPath = import_node_path6.default.join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else {
@@ -1276,13 +1289,13 @@ async function audit(options = {}) {
   const checks = [
     {
       label: "Sitemap",
-      implemented: await exists(import_node_path5.default.join(root, "public", "sitemap.xml")) || await exists(import_node_path5.default.join(root, "static", "sitemap.xml")) || await exists(import_node_path5.default.join(root, "sitemap.xml")),
+      implemented: await exists(import_node_path6.default.join(root, "public", "sitemap.xml")) || await exists(import_node_path6.default.join(root, "static", "sitemap.xml")) || await exists(import_node_path6.default.join(root, "sitemap.xml")),
       weight: 15,
       details: "Expected one of: public/sitemap.xml, static/sitemap.xml, sitemap.xml"
     },
     {
       label: "Robots",
-      implemented: await exists(import_node_path5.default.join(root, "public", "robots.txt")) || await exists(import_node_path5.default.join(root, "static", "robots.txt")) || await exists(import_node_path5.default.join(root, "robots.txt")),
+      implemented: await exists(import_node_path6.default.join(root, "public", "robots.txt")) || await exists(import_node_path6.default.join(root, "static", "robots.txt")) || await exists(import_node_path6.default.join(root, "robots.txt")),
       weight: 10,
       details: "Expected one of: public/robots.txt, static/robots.txt, robots.txt"
     },
@@ -1312,7 +1325,7 @@ async function audit(options = {}) {
     },
     {
       label: "404 handling",
-      implemented: await exists(import_node_path5.default.join(root, "app", "not-found.tsx")) || await exists(import_node_path5.default.join(root, "pages", "404.tsx")) || await exists(import_node_path5.default.join(root, "src", "routes", "+error.svelte")),
+      implemented: await exists(import_node_path6.default.join(root, "app", "not-found.tsx")) || await exists(import_node_path6.default.join(root, "pages", "404.tsx")) || await exists(import_node_path6.default.join(root, "src", "routes", "+error.svelte")),
       weight: 5,
       details: "Detected common framework 404 conventions"
     },
@@ -1396,6 +1409,7 @@ function scoreEntities(entities) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   DEFAULT_PATTERNS,
+  assertSafePath,
   astro,
   audit,
   classifyIntent,
@@ -1409,6 +1423,7 @@ function scoreEntities(entities) {
   propose,
   remix,
   renderSections,
+  safeJsonStringify,
   scoreEntities,
   slugify,
   stableHash,
