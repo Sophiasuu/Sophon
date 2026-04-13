@@ -51,11 +51,24 @@ npx @sophonn/sophon generate --framework astro --generate-output ./src/pages
 
 ## Generated Page Content
 
-Each generated page:
-- Hydrates entity name, slug, SEO title, meta description, tags, and metadata attributes
-- Contains a hallucination-prevention comment block — **preserve it**
-- Contains `// TODO` content sections where AI generation or business logic must be wired in
-- Includes YMYL and thin-content review warnings
+Each generated page includes:
+
+**SEO metadata (auto-populated per entity)**
+- `<title>` and `<meta name="description">`
+- Canonical URL (`<link rel="canonical">` or `alternates.canonical`)
+- Open Graph tags: `og:title`, `og:description`, `og:url`, `og:type`
+- Twitter Card tags: `twitter:card`, `twitter:title`, `twitter:description`
+
+**Page structure**
+- H1 populated from entity SEO title
+- H2 sections scaffolded for intro, FAQ, and comparison — all as `// TODO` blocks
+- Entity tags and attributes rendered for reference
+
+**Safety guardrails**
+- Hallucination-prevention comment block at the top — **preserve it**
+- YMYL warning logged if entity name/tags match health, legal, or financial terms
+- Thin-content warning logged if entity has fewer than 3 populated metadata fields
+- Duplicate slugs are skipped automatically with a logged warning
 
 Do not hardcode niche-specific copy into generated pages unless it comes from actual project data.
 
@@ -73,4 +86,4 @@ await generate({
 
 ## After Generation
 
-Review generated pages for duplicate slug risks, then run the `technical` skill to generate sitemap and schema assets.
+Run the `technical` skill to generate sitemap, schema, and hreflang scaffold assets.
