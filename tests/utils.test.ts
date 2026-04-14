@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
-import { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath } from "../src/core/utils";
+import { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath, escapeXml, sanitizeCsvCell, log, setLogLevel, getLogLevel } from "../src/core/utils";
 
 describe("slugify", () => {
   it("lowercases and trims", () => {
@@ -77,6 +77,13 @@ describe("safeJsonStringify", () => {
     expect(result).toContain("\\u003e");
   });
 
+  it("escapes & and ' as unicode escapes", () => {
+    const result = safeJsonStringify("Tom & Jerry's");
+    expect(result).toContain("\\u0026");
+    expect(result).toContain("\\u0027");
+    expect(result).not.toContain("&");
+  });
+
   it("prevents </script> injection", () => {
     const result = safeJsonStringify('</script><script>alert("xss")</script>');
     expect(result).not.toContain("</script>");
@@ -110,5 +117,60 @@ describe("assertSafePath", () => {
 
   it("rejects absolute paths outside cwd", () => {
     expect(() => assertSafePath("/tmp/evil/output")).toThrow("Output path must be within the project directory");
+  });
+});
+
+describe("escapeXml", () => {
+  it("escapes all five XML special characters", () => {
+    const result = escapeXml('Tom & Jerry\'s <"best"> show');
+    expect(result).toBe("Tom &amp; Jerry&apos;s &lt;&quot;best&quot;&gt; show");
+  });
+
+  it("handles clean strings unchanged", () => {
+    expect(escapeXml("hello-world")).toBe("hello-world");
+  });
+
+  it("escapes ampersand before other entities", () => {
+    const result = escapeXml("&amp;");
+    expect(result).toBe("&amp;amp;");
+  });
+});
+
+describe("sanitizeCsvCell", () => {
+  it("prefixes formula injection with single quote", () => {
+    expect(sanitizeCsvCell("=1+1")).toBe("'=1+1");
+    expect(sanitizeCsvCell("+cmd|' /C calc'!A0")).toBe("'+cmd|' /C calc'!A0");
+    expect(sanitizeCsvCell("-1+2")).toBe("'-1+2");
+    expect(sanitizeCsvCell("@SUM(A1:A2)")).toBe("'@SUM(A1:A2)");
+  });
+
+  it("leaves normal text untouched", () => {
+    expect(sanitizeCsvCell("CRM software")).toBe("CRM software");
+    expect(sanitizeCsvCell("best tools 2024")).toBe("best tools 2024");
+  });
+
+  it("handles empty string", () => {
+    expect(sanitizeCsvCell("")).toBe("");
+  });
+});
+
+describe("log", () => {
+  it("does not throw for any level", () => {
+    expect(() => log("debug", "test", "debug message")).not.toThrow();
+    expect(() => log("info", "test", "info message")).not.toThrow();
+    expect(() => log("warn", "test", "warn message")).not.toThrow();
+    expect(() => log("error", "test", "error message")).not.toThrow();
+  });
+
+  it("supports context objects", () => {
+    expect(() => log("warn", "test", "with context", { key: "value" })).not.toThrow();
+  });
+
+  it("setLogLevel and getLogLevel work", () => {
+    const original = getLogLevel();
+    setLogLevel("debug");
+    expect(getLogLevel()).toBe("debug");
+    setLogLevel(original);
+    expect(getLogLevel()).toBe(original);
   });
 });

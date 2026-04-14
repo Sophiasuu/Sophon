@@ -307,3 +307,29 @@ describe("buildSitemap with entity timestamps", () => {
     expect(sitemap).toContain("<lastmod>2024-05-01</lastmod>");
   });
 });
+
+// ── XML escaping tests ─────────────────────────────────────
+
+describe("XML escaping in sitemaps", () => {
+  it("escapes special characters in entity slugs", () => {
+    const entity = makeEntity("Tom & Jerry", "tom-jerry");
+    const sitemap = buildSitemap("https://example.com", [entity]);
+    expect(sitemap).toContain("<loc>https://example.com/tom-jerry</loc>");
+    // Site URL with & should be escaped
+    const sitemapAmp = buildSitemap("https://example.com?a=1&b=2", [entity]);
+    expect(sitemapAmp).toContain("&amp;");
+    expect(sitemapAmp).not.toMatch(/<loc>[^<]*[^a]&[^a][^<]*<\/loc>/); // no raw & in loc
+  });
+
+  it("escapes special characters in robots.txt sitemap URL", () => {
+    const robots = buildRobots("https://example.com?param=a&b=2");
+    expect(robots).toContain("&amp;");
+  });
+
+  it("escapes entity names in hreflang scaffolds", () => {
+    const entity = makeEntity("Tom & Jerry's <Show>", "tom-jerry");
+    const hreflang = buildHreflang("https://example.com", [entity]);
+    expect(hreflang).not.toContain("<Show>");
+    expect(hreflang).toContain("&amp;");
+  });
+});

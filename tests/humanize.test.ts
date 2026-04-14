@@ -77,7 +77,7 @@ describe("humanizeContent", () => {
 
     const result = humanizeContent(obj) as Record<string, unknown>;
     expect(result.title).toBe("The Overview");
-    expect((result.sections as Array<{ body: string }>)[0].body).toBe("This is solid.");
+    expect((result.sections as Array<{ body: string }>)[0].body).toBe("Also, this is solid.");
   });
 
   it("handles arrays", () => {
@@ -103,5 +103,38 @@ describe("countAiPatterns", () => {
   it("returns 0 for clean text", () => {
     const text = "CRM software helps teams manage contacts.";
     expect(countAiPatterns(text)).toBe(0);
+  });
+});
+
+describe("humanize v2 — collision prevention", () => {
+  it("prevents double-transition collisions", () => {
+    const text = "Therefore, on the other hand the result is clear.";
+    const result = humanize(text);
+    // Should NOT produce "Therefore, However, the result is clear."
+    expect(result).not.toMatch(/Therefore,\s*However,/i);
+  });
+
+  it("replaces Moreover with Also instead of removing", () => {
+    const text = "Moreover, the pricing is fair.";
+    const result = humanize(text);
+    expect(result).toBe("Also, the pricing is fair.");
+  });
+
+  it("replaces Furthermore with Also", () => {
+    const text = "Furthermore, it supports integrations.";
+    const result = humanize(text);
+    expect(result).toBe("Also, it supports integrations.");
+  });
+
+  it("replaces Additionally with Also", () => {
+    const text = "Additionally, speed matters.";
+    const result = humanize(text);
+    expect(result).toBe("Also, speed matters.");
+  });
+
+  it("handles orphaned parentheses after removal", () => {
+    const text = "This tool () works well.";
+    const result = humanize(text);
+    expect(result).not.toContain("()");
   });
 });

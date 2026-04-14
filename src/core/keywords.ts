@@ -7,8 +7,9 @@
 import { readFile } from "node:fs/promises";
 
 import type { EntityRecord, ProposedEntityIntent } from "../types";
+import { cacheGet, cacheSet } from "./cache";
 import { classifyIntent } from "./intent";
-import { slugify } from "./utils";
+import { sanitizeCsvCell, slugify } from "./utils";
 
 export type KeywordDifficulty = "easy" | "medium" | "hard";
 
@@ -73,6 +74,12 @@ function detectColumnIndex(headers: string[], aliases: string[]): number {
 }
 
 export async function importKeywordData(csvPath: string): Promise<Map<string, KeywordImportRow>> {
+  // Check cache first (keyed by file path)
+  const cached = await cacheGet<[string, KeywordImportRow][]>("keywords", csvPath);
+  if (cached) {
+    return new Map(cached);
+  }
+
   const raw = await readFile(csvPath, "utf8");
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return new Map();
@@ -88,7 +95,7 @@ export async function importKeywordData(csvPath: string): Promise<Map<string, Ke
   const result = new Map<string, KeywordImportRow>();
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
-    const keyword = cols[kwIdx]?.trim();
+    const keyword = sanitizeCsvCell(cols[kwIdx]?.trim() ?? "");
     if (!keyword) continue;
 
     result.set(slugify(keyword), {
@@ -98,6 +105,9 @@ export async function importKeywordData(csvPath: string): Promise<Map<string, Ke
       cpc: cpcIdx !== -1 ? Number.parseFloat(cols[cpcIdx].replace(/[$€£]/g, "")) || undefined : undefined,
     });
   }
+
+  // Cache the result
+  await cacheSet("keywords", csvPath, Array.from(result.entries()));
 
   return result;
 }

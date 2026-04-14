@@ -1,0 +1,17 @@
+{
+  "key": "keywords-46a1b65d",
+  "module": "keywords",
+  "createdAt": "2026-04-14T03:56:03.168Z",
+  "ttlMs": 3600000,
+  "data": [
+    [
+      "best-crm",
+      {
+        "keyword": "best CRM",
+        "volume": 8000,
+        "difficulty": 45,
+        "cpc": 2.5
+      }
+    ]
+  ]
+}

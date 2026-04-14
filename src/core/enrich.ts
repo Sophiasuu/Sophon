@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { writeGeneratedFile } from "./generate";
 import { humanizeContent } from "./humanize";
+import { log } from "./utils";
 import type { EnrichOptions, EntityRecord } from "../types";
 
 const MODEL = "claude-sonnet-4-20250514";
@@ -85,8 +86,8 @@ export async function enrich(options: EnrichOptions): Promise<void> {
         await readFile(outputPath, "utf8");
         console.log(`Cached: ${entity.slug} (use --force to re-enrich)`);
         continue;
-      } catch {
-        // File doesn't exist, needs enrichment
+      } catch (error) {
+        log("debug", "enrich", `Cache miss for ${entity.slug}`, { path: outputPath, error: (error as Error).message });
       }
     }
     toEnrich.push(entity);
@@ -131,7 +132,17 @@ export async function enrich(options: EnrichOptions): Promise<void> {
         ],
       });
 
-      const raw = JSON.parse(messageText(response as AnthropicMessageResponse));
+      const rawText = messageText(response as AnthropicMessageResponse);
+      let raw: unknown;
+      try {
+        raw = JSON.parse(rawText);
+      } catch (parseError) {
+        log("error", "enrich", `Invalid JSON from Claude for ${entity.slug}`, {
+          fragment: rawText.slice(0, 200),
+          error: (parseError as Error).message,
+        });
+        throw new Error(`Invalid JSON response for ${entity.slug}: ${(parseError as Error).message}`);
+      }
 
       // Apply humanization to content strings
       const humanized = humanizeContent(raw) as Record<string, unknown>;
@@ -159,6 +170,11 @@ export async function enrich(options: EnrichOptions): Promise<void> {
       }
 
       failed++;
+      log("error", "enrich", `Enrichment failed for ${entity.slug}`, {
+        attempt,
+        maxRetries,
+        error: error instanceof Error ? error.message : String(error),
+      });
       console.error(`  ✗ ${entity.slug}:`, error instanceof Error ? error.message : error);
     }
   }

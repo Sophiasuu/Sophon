@@ -1,0 +1,22 @@
+{
+  "key": "keywords-8c612cad",
+  "module": "keywords",
+  "createdAt": "2026-04-14T03:38:16.037Z",
+  "ttlMs": 3600000,
+  "data": [
+    [
+      "crm-for-small-business",
+      {
+        "keyword": "CRM for small business",
+        "volume": 1500
+      }
+    ],
+    [
+      "best-crm-tools-ranked",
+      {
+        "keyword": "best CRM tools, ranked",
+        "volume": 800
+      }
+    ]
+  ]
+}

@@ -15,6 +15,7 @@ export { analyzeKeyword, analyzeKeywords, importKeywordData } from "./core/keywo
 export { blog, generateBlogOutlines } from "./core/blog";
 export { buildFaqSchema } from "./core/technical";
 export { diffGenerate } from "./core/diff";
+export { configureCache, cacheGet, cacheSet, cacheInvalidate, cacheClear, cacheStats, isCacheEnabled } from "./core/cache";
 export {
   fetchGSCData,
   buildMetricsFromRows,
@@ -75,4 +76,4 @@ export type {
 } from "./types";
 export type { KeywordData, KeywordDifficulty, KeywordImportRow } from "./core/keywords";
 export { DEFAULT_PATTERNS } from "./core/discover";
-export { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath } from "./core/utils";
+export { slugify, stableHash, gradeFromScore, safeJsonStringify, assertSafePath, assertSafePathStrict, escapeXml, sanitizeCsvCell, log, setLogLevel, getLogLevel } from "./core/utils";

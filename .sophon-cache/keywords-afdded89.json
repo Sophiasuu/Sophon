@@ -1,0 +1,22 @@
+{
+  "key": "keywords-afdded89",
+  "module": "keywords",
+  "createdAt": "2026-04-14T03:38:16.013Z",
+  "ttlMs": 3600000,
+  "data": [
+    [
+      "crm-pricing",
+      {
+        "keyword": "CRM Pricing",
+        "volume": 5000
+      }
+    ],
+    [
+      "crm-alternatives",
+      {
+        "keyword": "CRM Alternatives",
+        "volume": 3000
+      }
+    ]
+  ]
+}

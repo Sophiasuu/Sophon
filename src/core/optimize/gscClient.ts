@@ -1,6 +1,9 @@
+import { cacheGet, cacheSet } from "../cache";
+import { log } from "../utils";
 import type { GSCFetchOptions, GSCPageMetrics, GSCQueryRow, GSCResponse } from "../../types";
 
 const GSC_API_BASE = "https://searchconsole.googleapis.com/webmasters/v3";
+const GSC_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours (GSC data already 3-day lag)
 
 function defaultDateRange(): { startDate: string; endDate: string } {
   const end = new Date();
@@ -29,6 +32,14 @@ export async function fetchGSCData(options: GSCFetchOptions): Promise<GSCPageMet
 
   const siteUrl = encodeURIComponent(options.site);
   const limit = options.limit ?? 500;
+
+  // Check cache first
+  const cacheKey = `${options.site}:${startDate}:${endDate}:${limit}`;
+  const cached = await cacheGet<GSCPageMetrics[]>("gsc", cacheKey, GSC_CACHE_TTL_MS);
+  if (cached) {
+    console.log(`Using cached GSC data (${cached.length} pages)`);
+    return cached;
+  }
 
   // Fetch page-level metrics
   const pageRows = await queryGSC(siteUrl, accessToken, {
@@ -74,6 +85,9 @@ export async function fetchGSCData(options: GSCFetchOptions): Promise<GSCPageMet
     });
   }
 
+  // Cache the result for future calls
+  await cacheSet("gsc", cacheKey, pages, GSC_CACHE_TTL_MS);
+
   return pages;
 }
 
@@ -95,7 +109,13 @@ async function queryGSC(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GSC API error (${response.status}): ${text}`);
+    const isClientError = response.status >= 400 && response.status < 500;
+    log("error", "gsc", `GSC API ${isClientError ? "client" : "server"} error`, {
+      status: response.status,
+      // Redact potential token leaks from error body
+      body: text.slice(0, 500),
+    });
+    throw new Error(`GSC API error (${response.status}): ${text.slice(0, 200)}`);
   }
 
   const data = (await response.json()) as GSCResponse;

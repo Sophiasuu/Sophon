@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { loadEnrichedContent, writeGeneratedFile } from "./generate";
 import { classifyIntent } from "./intent";
+import { escapeXml } from "./utils";
 import type { EnrichedFaq, EntityRecord, TechnicalOptions } from "../types";
 
 type InternalLinkRecord = {
@@ -79,10 +80,11 @@ const SITEMAP_MAX_URLS = 45000;
 
 export function buildSitemap(siteUrl: string, entities: EntityRecord[]): string {
   const lastmod = todayDate();
+  const escapedSiteUrl = escapeXml(siteUrl);
   const urls = entities
     .map(
       (entity) =>
-        `  <url>\n    <loc>${siteUrl}/${entity.slug}</loc>\n    <lastmod>${entity.metadata.enrichedAt ?? entity.metadata.generatedAt ?? lastmod}</lastmod>\n    <changefreq>${sitemapChangefreq(entity)}</changefreq>\n    <priority>${sitemapPriority(entity)}</priority>\n  </url>`,
+        `  <url>\n    <loc>${escapedSiteUrl}/${escapeXml(entity.slug)}</loc>\n    <lastmod>${entity.metadata.enrichedAt ?? entity.metadata.generatedAt ?? lastmod}</lastmod>\n    <changefreq>${sitemapChangefreq(entity)}</changefreq>\n    <priority>${sitemapPriority(entity)}</priority>\n  </url>`,
     )
     .join("\n");
 
@@ -104,6 +106,7 @@ export function buildSitemapIndex(siteUrl: string, entities: EntityRecord[]): { 
   }
 
   const lastmod = todayDate();
+  const escapedSiteUrl = escapeXml(siteUrl);
   const sitemaps = chunks.map((chunk, i) => ({
     name: `sitemap-${i + 1}.xml`,
     content: buildSitemap(siteUrl, chunk),
@@ -112,7 +115,7 @@ export function buildSitemapIndex(siteUrl: string, entities: EntityRecord[]): { 
   const indexEntries = sitemaps
     .map(
       (sm) =>
-        `  <sitemap>\n    <loc>${siteUrl}/${sm.name}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`,
+        `  <sitemap>\n    <loc>${escapedSiteUrl}/${escapeXml(sm.name)}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`,
     )
     .join("\n");
 
@@ -128,12 +131,13 @@ export function buildSitemapIndex(siteUrl: string, entities: EntityRecord[]): { 
 }
 
 export function buildRobots(siteUrl: string): string {
+  const escaped = escapeXml(siteUrl);
   return [
     "# Sophon generated — review before deploying to production",
     "User-agent: *",
     "Allow: /",
     "",
-    `Sitemap: ${siteUrl}/sitemap.xml`,
+    `Sitemap: ${escaped}/sitemap.xml`,
     "",
   ].join("\n");
 }
@@ -263,6 +267,7 @@ function relatedScore(entity: EntityRecord, candidate: EntityRecord): { score: n
 }
 
 export function buildHreflang(siteUrl: string, entities: EntityRecord[]): string {
+  const escaped = escapeXml(siteUrl);
   const lines = [
     "# SOPHON GENERATED — Hreflang scaffold",
     "# Add one <link rel=\"alternate\"> block per language/region variant per entity.",
@@ -272,9 +277,9 @@ export function buildHreflang(siteUrl: string, entities: EntityRecord[]): string
     "#",
     ...entities.slice(0, 3).map((e) =>
       [
-        `# <!-- ${e.name} -->`,
-        `# <link rel="alternate" hreflang="en" href="${siteUrl}/${e.slug}" />`,
-        `# <link rel="alternate" hreflang="x-default" href="${siteUrl}/${e.slug}" />`,
+        `# <!-- ${escapeXml(e.name)} -->`,
+        `# <link rel="alternate" hreflang="en" href="${escaped}/${escapeXml(e.slug)}" />`,
+        `# <link rel="alternate" hreflang="x-default" href="${escaped}/${escapeXml(e.slug)}" />`,
         `# <!-- Add hreflang="de", "fr", etc. for each language variant -->`,
         "#",
       ].join("\n"),

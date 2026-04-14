@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import {
   mapEntitiesToGSC,
@@ -355,5 +355,192 @@ describe("gscClient", () => {
       const metrics = buildMetricsFromRows(rows);
       expect(metrics[0].ctr).toBeCloseTo(0.05);
     });
+  });
+});
+
+// ── Auto-fixer tests ────────────────────────────────────────
+
+import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import path from "node:path";
+import { applyAutoFixes } from "../src/core/optimize/optimizer";
+
+describe("applyAutoFixes", () => {
+  const testRoot = path.join(process.cwd(), ".test-autofix");
+  const enrichedDir = path.join(testRoot, "data", "enriched", "payroll-software-pricing");
+
+  beforeEach(async () => {
+    await mkdir(enrichedDir, { recursive: true });
+    await writeFile(
+      path.join(enrichedDir, "content.json"),
+      JSON.stringify({
+        seo: {
+          title: "Payroll Software Pricing",
+          metaDescription: "Payroll software pricing plans and options.",
+        },
+        content: { intro: "Some intro text.", sections: [], faqs: [] },
+        schema: { type: "WebPage", name: "Payroll", description: "pricing" },
+        warnings: [],
+      }, null, 2),
+    );
+  });
+
+  afterEach(async () => {
+    try { await rm(testRoot, { recursive: true, force: true }); } catch { /* ignore */ }
+  });
+
+  it("rewrites title tag for title recommendation", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 100, impressions: 5000, ctr: 0.02, position: 4 },
+      optimizationScore: 40,
+      issues: ["Low CTR"],
+      issueTypes: ["low_ctr" as OptimizationIssueType],
+      recommendations: [
+        { type: "meta" as const, action: "Rewrite title tag with power words", reasoning: "Low CTR" },
+      ],
+      priority: "high" as const,
+    }];
+
+    const fixes = await applyAutoFixes(result, [entity], testRoot);
+    expect(fixes.length).toBe(1);
+    expect(fixes[0].applied.some((a) => a.includes("Rewrote title"))).toBe(true);
+
+    // Verify the file was actually modified
+    const raw = await readFile(path.join(enrichedDir, "content.json"), "utf8");
+    const content = JSON.parse(raw);
+    expect(content.seo.title).not.toBe("Payroll Software Pricing");
+    expect(content.seo.title).toContain("Guide");
+  });
+
+  it("improves meta description for description recommendation", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 100, impressions: 5000, ctr: 0.02, position: 4 },
+      optimizationScore: 40,
+      issues: ["Low CTR"],
+      issueTypes: ["low_ctr" as OptimizationIssueType],
+      recommendations: [
+        { type: "meta" as const, action: "Improve meta description with a clear CTA", reasoning: "Low CTR" },
+      ],
+      priority: "high" as const,
+    }];
+
+    const fixes = await applyAutoFixes(result, [entity], testRoot);
+    expect(fixes[0].applied.some((a) => a.includes("meta description"))).toBe(true);
+
+    const raw = await readFile(path.join(enrichedDir, "content.json"), "utf8");
+    const content = JSON.parse(raw);
+    expect(content.seo.metaDescription).toContain("Compare");
+  });
+
+  it("injects missing canonical path", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 50, impressions: 1000, ctr: 0.05, position: 15 },
+      optimizationScore: 50,
+      issues: ["Striking distance"],
+      issueTypes: ["striking_distance" as OptimizationIssueType],
+      recommendations: [
+        { type: "structure" as const, action: "Add FAQ section with schema markup", reasoning: "Striking distance" },
+      ],
+      priority: "medium" as const,
+    }];
+
+    const fixes = await applyAutoFixes(result, [entity], testRoot);
+    const raw = await readFile(path.join(enrichedDir, "content.json"), "utf8");
+    const content = JSON.parse(raw);
+    expect(content.seo.canonicalPath).toBe("/payroll-software-pricing");
+  });
+
+  it("injects missing OG fields", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 50, impressions: 500, ctr: 0.1, position: 8 },
+      optimizationScore: 60,
+      issues: ["Striking distance"],
+      issueTypes: ["striking_distance" as OptimizationIssueType],
+      recommendations: [
+        { type: "content" as const, action: "Add content depth", reasoning: "Close to page 1" },
+      ],
+      priority: "medium" as const,
+    }];
+
+    const fixes = await applyAutoFixes(result, [entity], testRoot);
+
+    const raw = await readFile(path.join(enrichedDir, "content.json"), "utf8");
+    const content = JSON.parse(raw);
+    // OG fields should be auto-injected from existing SEO fields
+    expect(content.seo.ogTitle).toBeDefined();
+    expect(content.seo.ogDescription).toBeDefined();
+  });
+
+  it("creates backup before modifying", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 100, impressions: 5000, ctr: 0.02, position: 4 },
+      optimizationScore: 40,
+      issues: ["Low CTR"],
+      issueTypes: ["low_ctr" as OptimizationIssueType],
+      recommendations: [
+        { type: "meta" as const, action: "Rewrite title tag", reasoning: "Low CTR" },
+      ],
+      priority: "high" as const,
+    }];
+
+    await applyAutoFixes(result, [entity], testRoot);
+    const backupPath = path.join(enrichedDir, "content.backup.json");
+    const backup = await readFile(backupPath, "utf8");
+    const backupContent = JSON.parse(backup);
+    expect(backupContent.seo.title).toBe("Payroll Software Pricing");
+  });
+
+  it("skips when entity not found", async () => {
+    const result = [{
+      entity: "nonexistent",
+      slug: "nonexistent",
+      metrics: { clicks: 0, impressions: 0, ctr: 0, position: 50 },
+      optimizationScore: 10,
+      issues: [],
+      issueTypes: [] as OptimizationIssueType[],
+      recommendations: [
+        { type: "meta" as const, action: "Fix title", reasoning: "poor" },
+      ],
+      priority: "critical" as const,
+    }];
+
+    const fixes = await applyAutoFixes(result, [makeEntity()], testRoot);
+    expect(fixes.length).toBe(0);
+  });
+
+  it("adds lastOptimizedAt timestamp", async () => {
+    const entity = makeEntity();
+    const result = [{
+      entity: "payroll-software-pricing",
+      slug: "payroll-software-pricing",
+      metrics: { clicks: 100, impressions: 5000, ctr: 0.02, position: 4 },
+      optimizationScore: 40,
+      issues: ["Low CTR"],
+      issueTypes: ["low_ctr" as OptimizationIssueType],
+      recommendations: [
+        { type: "meta" as const, action: "Rewrite title tag", reasoning: "Low CTR" },
+      ],
+      priority: "high" as const,
+    }];
+
+    await applyAutoFixes(result, [entity], testRoot);
+    const raw = await readFile(path.join(enrichedDir, "content.json"), "utf8");
+    const content = JSON.parse(raw);
+    expect(content.lastOptimizedAt).toBeDefined();
+    expect(new Date(content.lastOptimizedAt).getTime()).toBeGreaterThan(0);
   });
 });

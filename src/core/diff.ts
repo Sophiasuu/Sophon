@@ -8,6 +8,7 @@ import { remix } from "../adapters/remix";
 import { sveltekit } from "../adapters/sveltekit";
 import { buildHydrationMap, loadEnrichedContent } from "./generate";
 import { classifyIntent } from "./intent";
+import { log } from "./utils";
 import { getSections, renderSections } from "./sections";
 import type { EntityRecord, Framework, GenerateOptions } from "../types";
 
@@ -87,8 +88,8 @@ export async function diffGenerate(options: DiffOptions): Promise<DiffResult> {
     let existingContent: string | null = null;
     try {
       existingContent = await readFile(pagePath, "utf8");
-    } catch {
-      // File doesn't exist
+    } catch (error) {
+      log("debug", "diff", `Page file not found: ${pagePath}`, { slug: entity.slug, error: (error as Error).message });
     }
 
     if (!existingContent) {
@@ -128,13 +129,13 @@ export async function diffGenerate(options: DiffOptions): Promise<DiffResult> {
           if (isManagedBySophon(content)) {
             changes.push({ type: "removed", path: filePath, slug });
           }
-        } catch {
-          // skip
+        } catch (error) {
+          log("debug", "diff", `Could not read file for removed check: ${filePath}`, { error: (error as Error).message });
         }
       }
     }
-  } catch {
-    // Output dir may not exist yet
+  } catch (error) {
+    log("debug", "diff", `Output directory not found: ${outputRoot}`, { error: (error as Error).message });
   }
 
   return {
@@ -169,8 +170,8 @@ async function scanExistingPages(outputRoot: string, framework: Framework): Prom
         results.push({ slug, filePath: fullPath });
       }
     }
-  } catch {
-    // Directory may not exist
+  } catch (error) {
+    log("debug", "diff", `Output directory does not exist: ${outputRoot}`, { error: (error as Error).message });
   }
 
   return results;

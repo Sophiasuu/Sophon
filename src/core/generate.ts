@@ -10,6 +10,7 @@ import { sveltekit } from "../adapters/sveltekit";
 import { classifyIntent } from "./intent";
 import { getSections, renderSections } from "./sections";
 import { safeJsonStringify } from "./utils";
+import { log } from "./utils";
 import type { EnrichedContent, EntityRecord, Framework, GenerateOptions, GenerateSummary } from "../types";
 
 // Default site URL when none is provided
@@ -38,7 +39,8 @@ function escapeHtml(text: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // ── Template-based content fallback ────────────────────────
@@ -143,7 +145,8 @@ export async function loadEnrichedContent(slug: string, enrichDir?: string): Pro
   try {
     const raw = await readFile(path.join(dir, slug, "content.json"), "utf8");
     return JSON.parse(raw) as EnrichedContent;
-  } catch {
+  } catch (error) {
+    log("debug", "generate", `No enriched content for ${slug}`, { dir, error: (error as Error).message });
     return null;
   }
 }
@@ -296,7 +299,7 @@ export function buildHydrationMap(entity: EntityRecord, siteUrl?: string, enrich
     "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
     "__ENTITY_OG_IMAGE__": safeJsonStringify(entity.metadata.ogImage ?? ""),
     "__SITE_URL__": safeJsonStringify(resolvedSiteUrl),
-    "__ENTITY_SCHEMA_JSONLD__": JSON.stringify(schemaJsonLd, null, 2),
+    "__ENTITY_SCHEMA_JSONLD__": safeJsonStringify(schemaJsonLd),
   };
 }
 
@@ -386,8 +389,8 @@ export async function writeGeneratedFile(
         );
         return false;
       }
-    } catch {
-      // File does not exist yet.
+    } catch (error) {
+      log("debug", "generate", `File does not exist yet: ${filePath}`, { error: (error as Error).message });
     }
   }
 

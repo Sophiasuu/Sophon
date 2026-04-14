@@ -1,0 +1,17 @@
+{
+  "key": "keywords-1d3f4ef6",
+  "module": "keywords",
+  "createdAt": "2026-04-14T03:38:16.031Z",
+  "ttlMs": 3600000,
+  "data": [
+    [
+      "crm-tools",
+      {
+        "keyword": "crm tools",
+        "volume": 12000,
+        "difficulty": 0.8,
+        "cpc": 3
+      }
+    ]
+  ]
+}

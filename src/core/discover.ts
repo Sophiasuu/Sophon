@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import type { DiscoverMode, DiscoverOptions, DiscoverResult, EntityRecord } from "../types";
-import { slugify, stableHash } from "./utils";
+import { sanitizeCsvCell, slugify, stableHash } from "./utils";
 
 export const DEFAULT_PATTERNS = [
   "{seed} for startups",
@@ -197,7 +197,7 @@ async function discoverFromCsv(csvPath: string, titleTemplate?: string): Promise
 
   const entities = dataRows.flatMap((line) => {
     const columns = parseCsvRow(line);
-    const name = columns[0];
+    const name = sanitizeCsvCell(columns[0]);
 
     if (!name) {
       return [];
@@ -232,6 +232,14 @@ function discoverFromSeed(seedKeyword: string, patternTemplates: string[], title
 export async function discover(options: DiscoverOptions): Promise<DiscoverResult> {
   if (!options.csv && !options.seed) {
     throw new Error("Provide either a csv path or a seed keyword.");
+  }
+
+  if (options.seed && options.seed.trim().length === 0) {
+    throw new Error("Seed keyword must not be empty.");
+  }
+
+  if (options.csv && !options.csv.endsWith(".csv")) {
+    throw new Error("CSV file must have a .csv extension.");
   }
 
   const entities = options.csv

@@ -1,0 +1,22 @@
+{
+  "key": "keywords-9061963a",
+  "module": "keywords",
+  "createdAt": "2026-04-14T03:56:03.173Z",
+  "ttlMs": 3600000,
+  "data": [
+    [
+      "crm-pricing",
+      {
+        "keyword": "crm pricing",
+        "cpc": 4.5
+      }
+    ],
+    [
+      "crm-tools",
+      {
+        "keyword": "crm tools",
+        "cpc": 2.8
+      }
+    ]
+  ]
+}
