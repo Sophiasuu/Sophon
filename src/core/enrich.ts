@@ -9,6 +9,8 @@ import type { EnrichOptions, EntityRecord } from "../types";
 
 const MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_CONCURRENCY = 3;
+const DEFAULT_MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1000;
 
 const SYSTEM_PROMPT = `You are a programmatic SEO content generator.
 Generate structured page content for the provided entity.
@@ -66,13 +68,13 @@ export function buildUserPrompt(entity: EntityRecord): string {
 export async function enrich(options: EnrichOptions): Promise<void> {
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
 
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
+  if (!apiKey && !options.dryRun) {
+    throw new Error("ANTHROPIC_API_KEY is required for enrichment. Use --dry-run to preview prompts without calling the API.");
   }
 
   const outputRoot = options.output ?? path.join("data", "enriched");
-  const client = new Anthropic({ apiKey });
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 
   // Filter out already-enriched entities (cache check)
   const toEnrich: EntityRecord[] = [];
@@ -95,13 +97,26 @@ export async function enrich(options: EnrichOptions): Promise<void> {
     return;
   }
 
+  // Dry-run mode: output prompts without calling API
+  if (options.dryRun) {
+    console.log(`Dry run: ${toEnrich.length} entities would be enriched\n`);
+    for (const entity of toEnrich) {
+      console.log(`--- ${entity.slug} ---`);
+      console.log(`System prompt: (${SYSTEM_PROMPT.length} chars)`);
+      console.log(`User prompt:\n${buildUserPrompt(entity)}\n`);
+    }
+    return;
+  }
+
+  const client = new Anthropic({ apiKey: apiKey! });
+
   console.log(`Enriching ${toEnrich.length} entities (${options.entities.length - toEnrich.length} cached, concurrency: ${concurrency})...`);
 
   // Process in concurrent batches
   let completed = 0;
   let failed = 0;
 
-  async function enrichOne(entity: EntityRecord): Promise<void> {
+  async function enrichWithRetry(entity: EntityRecord, attempt: number): Promise<void> {
     try {
       const response = await client.messages.create({
         model: MODEL,
@@ -119,7 +134,10 @@ export async function enrich(options: EnrichOptions): Promise<void> {
       const raw = JSON.parse(messageText(response as AnthropicMessageResponse));
 
       // Apply humanization to content strings
-      const humanized = humanizeContent(raw);
+      const humanized = humanizeContent(raw) as Record<string, unknown>;
+
+      // Add enrichment timestamp
+      humanized.enrichedAt = new Date().toISOString();
 
       await writeGeneratedFile(
         path.join(outputRoot, entity.slug, "content.json"),
@@ -129,6 +147,17 @@ export async function enrich(options: EnrichOptions): Promise<void> {
       completed++;
       console.log(`  ✓ ${entity.slug} (${completed}/${toEnrich.length})`);
     } catch (error) {
+      const isRetryable =
+        error instanceof Error &&
+        (/429|rate.limit|overloaded|500|502|503|529/i.test(error.message));
+
+      if (isRetryable && attempt < maxRetries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`  ⟳ ${entity.slug}: retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return enrichWithRetry(entity, attempt + 1);
+      }
+
       failed++;
       console.error(`  ✗ ${entity.slug}:`, error instanceof Error ? error.message : error);
     }
@@ -137,7 +166,7 @@ export async function enrich(options: EnrichOptions): Promise<void> {
   // Concurrency pool
   const pool: Promise<void>[] = [];
   for (const entity of toEnrich) {
-    const promise = enrichOne(entity);
+    const promise = enrichWithRetry(entity, 0);
     pool.push(promise);
 
     if (pool.length >= concurrency) {

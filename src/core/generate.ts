@@ -41,6 +41,66 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// ── Template-based content fallback ────────────────────────
+// When no enriched content is available, generate structured content
+// from entity metadata instead of empty TODO stubs.
+
+function buildFallbackContent(entity: EntityRecord, framework: Framework): string {
+  const useTailwind = framework === "nextjs";
+  const indentMap: Record<Framework, { indent: number; gap: string }> = {
+    nextjs: { indent: 10, gap: "\n\n" },
+    sveltekit: { indent: 2, gap: "\n\n" },
+    remix: { indent: 6, gap: "\n" },
+    astro: { indent: 6, gap: "\n" },
+    nuxt: { indent: 4, gap: "\n" },
+  };
+
+  const { indent, gap } = indentMap[framework];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const parts: string[] = [];
+
+  // Build intro from description
+  const desc = entity.metadata.description ?? `Learn more about ${entity.name}.`;
+  parts.push(
+    useTailwind
+      ? `${pad}<section className="space-y-3">\n${inner}<p className="text-base leading-7 text-neutral-700">${escapeHtml(desc)}</p>\n${pad}</section>`
+      : `${pad}<section>\n${inner}<p>${escapeHtml(desc)}</p>\n${pad}</section>`,
+  );
+
+  // Build attributes section if available
+  const attrs = entity.metadata.attributes ?? {};
+  const attrKeys = Object.keys(attrs);
+  if (attrKeys.length > 0) {
+    const rows = attrKeys
+      .map((key) =>
+        useTailwind
+          ? `${inner}  <tr>\n${inner}    <td className="pr-4 font-medium text-neutral-950">${escapeHtml(key)}</td>\n${inner}    <td className="text-neutral-700">${escapeHtml(attrs[key])}</td>\n${inner}  </tr>`
+          : `${inner}  <tr>\n${inner}    <td>${escapeHtml(key)}</td>\n${inner}    <td>${escapeHtml(attrs[key])}</td>\n${inner}  </tr>`,
+      )
+      .join("\n");
+
+    parts.push(
+      useTailwind
+        ? `${pad}<section className="space-y-3 rounded-3xl bg-amber-50 p-6">\n${inner}<h2 className="text-xl font-medium text-neutral-950">Key Details</h2>\n${inner}<table className="w-full">\n${inner}  <tbody>\n${rows}\n${inner}  </tbody>\n${inner}</table>\n${pad}</section>`
+        : `${pad}<section>\n${inner}<h2>Key Details</h2>\n${inner}<table>\n${inner}  <tbody>\n${rows}\n${inner}  </tbody>\n${inner}</table>\n${pad}</section>`,
+    );
+  }
+
+  // Build tags section if available
+  const tags = entity.metadata.tags ?? [];
+  if (tags.length > 0) {
+    const tagList = tags.map((t) => `${inner}  <li>${escapeHtml(t)}</li>`).join("\n");
+    parts.push(
+      useTailwind
+        ? `${pad}<section className="space-y-3">\n${inner}<h2 className="text-xl font-medium text-neutral-950">Related Topics</h2>\n${inner}<ul className="list-disc pl-6 text-neutral-700">\n${tagList}\n${inner}</ul>\n${pad}</section>`
+        : `${pad}<section>\n${inner}<h2>Related Topics</h2>\n${inner}<ul>\n${tagList}\n${inner}</ul>\n${pad}</section>`,
+    );
+  }
+
+  return parts.join(gap);
+}
+
 const YMYL_DISCLAIMER_TEXT = "This content is for informational purposes only and does not constitute professional advice. Consult a qualified professional before making any decisions based on this information.";
 
 export function renderYmylDisclaimer(framework: Framework, entity: EntityRecord): string {
@@ -234,6 +294,7 @@ export function buildHydrationMap(entity: EntityRecord, siteUrl?: string, enrich
     "__ENTITY_DESCRIPTION__": safeJsonStringify(description),
     "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
     "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
+    "__ENTITY_OG_IMAGE__": safeJsonStringify(entity.metadata.ogImage ?? ""),
     "__SITE_URL__": safeJsonStringify(resolvedSiteUrl),
     "__ENTITY_SCHEMA_JSONLD__": JSON.stringify(schemaJsonLd, null, 2),
   };
@@ -246,7 +307,10 @@ function hydrateTemplate(template: string, entity: EntityRecord, framework: Fram
   if (enriched?.content) {
     sectionsHtml = renderEnrichedContent(framework, enriched.content);
   } else {
-    sectionsHtml = renderSections(framework, getSections(intent));
+    // Use template-based fallback from metadata, with TODO sections appended
+    const fallback = buildFallbackContent(entity, framework);
+    const todoSections = renderSections(framework, getSections(intent));
+    sectionsHtml = fallback + "\n\n" + todoSections;
   }
 
   const replacements: Record<string, string> = {

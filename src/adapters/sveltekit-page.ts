@@ -8,6 +8,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 export function load() {

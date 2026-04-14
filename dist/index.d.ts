@@ -10,6 +10,9 @@ type EntityRecord = {
         description?: string;
         tags?: string[];
         attributes?: Record<string, string>;
+        ogImage?: string;
+        generatedAt?: string;
+        enrichedAt?: string;
     };
 };
 type DiscoverResult = {
@@ -64,6 +67,7 @@ type TechnicalOptions = {
     site: string;
     output?: string;
     force?: boolean;
+    maxLinks?: number;
 };
 type EnrichOptions = {
     entities: EntityRecord[];
@@ -71,6 +75,8 @@ type EnrichOptions = {
     output?: string;
     concurrency?: number;
     force?: boolean;
+    dryRun?: boolean;
+    maxRetries?: number;
 };
 type GenerateSummary = {
     total: number;
@@ -243,6 +249,16 @@ declare function renderYmylDisclaimer(framework: Framework, entity: EntityRecord
 declare function loadEnrichedContent(slug: string, enrichDir?: string): Promise<EnrichedContent | null>;
 declare function generate(options: GenerateOptions): Promise<GenerateSummary>;
 
+type BreadcrumbSchema = {
+    "@context": "https://schema.org";
+    "@type": "BreadcrumbList";
+    itemListElement: Array<{
+        "@type": "ListItem";
+        position: number;
+        name: string;
+        item: string;
+    }>;
+};
 type FaqSchemaRecord = {
     "@context": "https://schema.org";
     "@type": "FAQPage";
@@ -255,6 +271,14 @@ type FaqSchemaRecord = {
         };
     }>;
 };
+declare function buildSitemapIndex(siteUrl: string, entities: EntityRecord[]): {
+    index: string;
+    sitemaps: Array<{
+        name: string;
+        content: string;
+    }>;
+} | null;
+declare function buildBreadcrumbSchema(siteUrl: string, entities: EntityRecord[]): BreadcrumbSchema[];
 declare function buildFaqSchema(entity: EntityRecord, enrichedFaqs?: EnrichedFaq[]): FaqSchemaRecord | null;
 declare function technical(options: TechnicalOptions): Promise<void>;
 
@@ -378,9 +402,9 @@ declare function scoreContent(entity: EntityRecord, content: string): ContentQua
 declare function scoreAllContent(entities: EntityRecord[], contentMap: Map<string, string>): QualityReport;
 
 /**
- * Keyword data integration — basic keyword scoring and volume estimation.
- * Uses heuristic signals (word count, modifier presence, competition indicators)
- * since we don't depend on paid keyword APIs.
+ * Keyword data integration — keyword scoring and volume estimation.
+ * Supports heuristic estimation when no real data is available,
+ * or importing real keyword data from CSV (e.g. Ahrefs, SEMrush, Google Keyword Planner exports).
  */
 
 type KeywordDifficulty = "easy" | "medium" | "hard";
@@ -392,9 +416,17 @@ type KeywordData = {
     intent: ProposedEntityIntent;
     cpcEstimate: string;
     opportunityScore: number;
+    dataSource: "heuristic" | "imported";
 };
-declare function analyzeKeyword(entity: EntityRecord): KeywordData;
-declare function analyzeKeywords(entities: EntityRecord[]): KeywordData[];
+type KeywordImportRow = {
+    keyword: string;
+    volume?: number;
+    difficulty?: number;
+    cpc?: number;
+};
+declare function importKeywordData(csvPath: string): Promise<Map<string, KeywordImportRow>>;
+declare function analyzeKeyword(entity: EntityRecord, imported?: Map<string, KeywordImportRow>): KeywordData;
+declare function analyzeKeywords(entities: EntityRecord[], imported?: Map<string, KeywordImportRow>): KeywordData[];
 
 /**
  * Blog / supporting content generation — creates supporting article
@@ -418,6 +450,26 @@ type BlogOptions = {
 declare function generateBlogOutlines(entities: EntityRecord[], postsPerEntity?: number): BlogOutline[];
 declare function blog(options: BlogOptions): Promise<BlogOutline[]>;
 
+type DiffChange = {
+    type: "new" | "updated" | "removed" | "unchanged";
+    path: string;
+    slug: string;
+};
+type DiffResult = {
+    newPages: number;
+    updatedPages: number;
+    unchangedPages: number;
+    removedPages: number;
+    changes: DiffChange[];
+};
+type DiffOptions = {
+    entities: EntityRecord[];
+    framework: Framework;
+    output?: string;
+    site?: string;
+};
+declare function diffGenerate(options: DiffOptions): Promise<DiffResult>;
+
 declare function nextjs(_options: GenerateOptions): string;
 
 declare function astro(_options: GenerateOptions): string;
@@ -439,4 +491,4 @@ declare function safeJsonStringify(value: unknown): string;
 declare function gradeFromScore(score: number): string;
 declare function assertSafePath(filePath: string): void;
 
-export { type AuditCheck, type AuditResult, type BlogOptions$1 as BlogOptions, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EnrichedComparison, type EnrichedContent, type EnrichedFaq, type EnrichedSection, type EntityOptimizationResult, type EntityRecord, type EntityScore, type Framework, type GSCCredentials, type GSCFetchOptions, type GSCPageMetrics, type GSCQueryRow, type GSCResponse, type GenerateOptions, type GenerateSummary, type KeywordOptions, type OptimizationIssueType, type OptimizationPriority, type OptimizationRecommendation, type OptimizationReport, type OptimizeOptions, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type QualityOptions, type RecommendationType, type ScoreCheck, type ScoreResult, type TechnicalOptions, analyzeAll, analyzeEntity, analyzeKeyword, analyzeKeywords, applyAutoFixes, assertSafePath, astro, audit, blog, buildFaqSchema, buildMetricsFromRows, calculateScore, classifyIntent, countAiPatterns, discover, enrich, fetchGSCData, filterMappedEntities, filterUnmappedEntities, fleschKincaid, generate, generateBlogOutlines, generateRecommendations, getSections, gradeFromScore, humanize, humanizeContent, isSophonFile, loadEnrichedContent, mapEntitiesToGSC, nextjs, nuxt, optimize, propose, remix, renderSections, renderYmylDisclaimer, safeJsonStringify, scoreAllContent, scoreContent, scoreEntities, slugify, stableHash, sveltekit, teach, technical, trigramOverlap };
+export { type AuditCheck, type AuditResult, type BlogOptions$1 as BlogOptions, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EnrichedComparison, type EnrichedContent, type EnrichedFaq, type EnrichedSection, type EntityOptimizationResult, type EntityRecord, type EntityScore, type Framework, type GSCCredentials, type GSCFetchOptions, type GSCPageMetrics, type GSCQueryRow, type GSCResponse, type GenerateOptions, type GenerateSummary, type KeywordData, type KeywordDifficulty, type KeywordImportRow, type KeywordOptions, type OptimizationIssueType, type OptimizationPriority, type OptimizationRecommendation, type OptimizationReport, type OptimizeOptions, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type QualityOptions, type RecommendationType, type ScoreCheck, type ScoreResult, type TechnicalOptions, analyzeAll, analyzeEntity, analyzeKeyword, analyzeKeywords, applyAutoFixes, assertSafePath, astro, audit, blog, buildBreadcrumbSchema, buildFaqSchema, buildMetricsFromRows, buildSitemapIndex, calculateScore, classifyIntent, countAiPatterns, diffGenerate, discover, enrich, fetchGSCData, filterMappedEntities, filterUnmappedEntities, fleschKincaid, generate, generateBlogOutlines, generateRecommendations, getSections, gradeFromScore, humanize, humanizeContent, importKeywordData, isSophonFile, loadEnrichedContent, mapEntitiesToGSC, nextjs, nuxt, optimize, propose, remix, renderSections, renderYmylDisclaimer, safeJsonStringify, scoreAllContent, scoreContent, scoreEntities, slugify, stableHash, sveltekit, teach, technical, trigramOverlap };

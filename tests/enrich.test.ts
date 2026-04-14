@@ -107,4 +107,37 @@ describe("enrich", () => {
       }
     }
   });
+
+  it("does not throw in dry-run mode without API key", async () => {
+    const { enrich } = await import("../src/core/enrich");
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+
+    try {
+      // dry-run should not throw even without API key
+      await expect(
+        enrich({ entities: [makeEntity()], dryRun: true }),
+      ).resolves.not.toThrow();
+    } finally {
+      if (originalKey) {
+        process.env.ANTHROPIC_API_KEY = originalKey;
+      }
+    }
+  });
+
+  it("error message mentions --dry-run when API key is missing", async () => {
+    const { enrich } = await import("../src/core/enrich");
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+
+    try {
+      await expect(
+        enrich({ entities: [makeEntity()], apiKey: undefined }),
+      ).rejects.toThrow("--dry-run");
+    } finally {
+      if (originalKey) {
+        process.env.ANTHROPIC_API_KEY = originalKey;
+      }
+    }
+  });
 });

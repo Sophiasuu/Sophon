@@ -40,11 +40,14 @@ __export(src_exports, {
   astro: () => astro,
   audit: () => audit,
   blog: () => blog,
+  buildBreadcrumbSchema: () => buildBreadcrumbSchema,
   buildFaqSchema: () => buildFaqSchema,
   buildMetricsFromRows: () => buildMetricsFromRows,
+  buildSitemapIndex: () => buildSitemapIndex,
   calculateScore: () => calculateScore,
   classifyIntent: () => classifyIntent,
   countAiPatterns: () => countAiPatterns,
+  diffGenerate: () => diffGenerate,
   discover: () => discover,
   enrich: () => enrich,
   fetchGSCData: () => fetchGSCData,
@@ -58,6 +61,7 @@ __export(src_exports, {
   gradeFromScore: () => gradeFromScore,
   humanize: () => humanize,
   humanizeContent: () => humanizeContent,
+  importKeywordData: () => importKeywordData,
   isSophonFile: () => isSophonFile,
   loadEnrichedContent: () => loadEnrichedContent,
   mapEntitiesToGSC: () => mapEntitiesToGSC,
@@ -192,7 +196,8 @@ function toEntity(name, source, options = {}) {
       title: buildTitle(cleanName, source, options.titleTemplate),
       description: buildDescription(cleanName, source, options.seedKeyword),
       tags: options.seedKeyword ? [options.seedKeyword] : [],
-      attributes: options.attributes
+      attributes: options.attributes,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString()
     }
   };
 }
@@ -442,6 +447,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 };
 
 const siteUrl = __SITE_URL__;
@@ -460,10 +466,13 @@ const jsonLd = __ENTITY_SCHEMA_JSONLD__;
     <meta property="og:description" content={entity.description} />
     <meta property="og:url" content={\`\${siteUrl}/\${entity.slug}\`} />
     <meta property="og:type" content="website" />
+    {entity.ogImage && <meta property="og:image" content={entity.ogImage} />}
+    {entity.ogImage && <meta property="og:image:alt" content={entity.title} />}
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={entity.title} />
     <meta name="twitter:description" content={entity.description} />
+    {entity.ogImage && <meta name="twitter:image" content={entity.ogImage} />}
     <!-- JSON-LD Schema -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
@@ -471,6 +480,7 @@ const jsonLd = __ENTITY_SCHEMA_JSONLD__;
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
+      {entity.ogImage && <img src={entity.ogImage} alt={entity.title} loading="lazy" width="1200" height="630" />}
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
     </main>
@@ -495,6 +505,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -512,11 +523,13 @@ export const metadata: Metadata = {
     description: entity.description,
     url: siteUrl + "/" + entity.slug,
     type: "website",
+    ...(entity.ogImage ? { images: [{ url: entity.ogImage, alt: entity.title }] } : {}),
   },
   twitter: {
     card: "summary_large_image",
     title: entity.title,
     description: entity.description,
+    ...(entity.ogImage ? { images: [entity.ogImage] } : {}),
   },
 };
 
@@ -532,6 +545,16 @@ export default function SophonPage() {
       <header className="space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">{entity.title}</h1>
         <p className="max-w-3xl text-base leading-7 text-neutral-700">{entity.description}</p>
+        {entity.ogImage && (
+          <img
+            src={entity.ogImage}
+            alt={entity.title}
+            loading="lazy"
+            width={1200}
+            height={630}
+            className="w-full rounded-2xl"
+          />
+        )}
       </header>
 
 __ENTITY_YMYL_DISCLAIMER__
@@ -561,6 +584,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -578,9 +602,11 @@ useHead({
     { property: "og:description", content: entity.description },
     { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
+    ...(entity.ogImage ? [{ property: "og:image", content: entity.ogImage }, { property: "og:image:alt", content: entity.title }] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
     { name: "twitter:description", content: entity.description },
+    ...(entity.ogImage ? [{ name: "twitter:image", content: entity.ogImage }] : []),
   ],
   link: [{ rel: "canonical", href: siteUrl + "/" + entity.slug }],
   script: [{ type: "application/ld+json", innerHTML: JSON.stringify(jsonLd) }],
@@ -591,6 +617,7 @@ useHead({
   <main>
     <h1>{{ entity.title }}</h1>
     <p>{{ entity.description }}</p>
+    <img v-if="entity.ogImage" :src="entity.ogImage" :alt="entity.title" loading="lazy" width="1200" height="630" />
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
   </main>
@@ -614,6 +641,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -628,9 +656,11 @@ export const meta: MetaFunction = () => {
     { property: "og:description", content: entity.description },
     { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
+    ...(entity.ogImage ? [{ property: "og:image", content: entity.ogImage }, { property: "og:image:alt", content: entity.title }] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
     { name: "twitter:description", content: entity.description },
+    ...(entity.ogImage ? [{ name: "twitter:image", content: entity.ogImage }] : []),
   ];
 };
 
@@ -643,6 +673,9 @@ export default function SophonPage() {
       />
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
+      {entity.ogImage && (
+        <img src={entity.ogImage} alt={entity.title} loading="lazy" width={1200} height={630} />
+      )}
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
     </main>
@@ -662,6 +695,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 export function load() {
@@ -688,6 +722,7 @@ function sveltekit(_options) {
       description: string;
       tags: string[];
       attributes: Record<string, string>;
+      ogImage: string;
     };
     siteUrl: string;
     jsonLd: Record<string, unknown>;
@@ -703,10 +738,17 @@ function sveltekit(_options) {
   <meta property="og:description" content={data.entity.description} />
   <meta property="og:url" content={\`\${data.siteUrl}/\${data.entity.slug}\`} />
   <meta property="og:type" content="website" />
+  {#if data.entity.ogImage}
+  <meta property="og:image" content={data.entity.ogImage} />
+  <meta property="og:image:alt" content={data.entity.title} />
+  {/if}
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={data.entity.title} />
   <meta name="twitter:description" content={data.entity.description} />
+  {#if data.entity.ogImage}
+  <meta name="twitter:image" content={data.entity.ogImage} />
+  {/if}
   <!-- JSON-LD Schema -->
   {@html \`<script type="application/ld+json">\${JSON.stringify(data.jsonLd)}</script>\`}
 </svelte:head>
@@ -714,6 +756,9 @@ function sveltekit(_options) {
 <main>
   <h1>{data.entity.title}</h1>
   <p>{data.entity.description}</p>
+  {#if data.entity.ogImage}
+  <img src={data.entity.ogImage} alt={data.entity.title} loading="lazy" width="1200" height="630" />
+  {/if}
 
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
@@ -806,6 +851,76 @@ var YMYL_TERMS = [
 var TODO_SECTIONS_PER_PAGE = 4;
 function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function buildFallbackContent(entity, framework) {
+  const useTailwind = framework === "nextjs";
+  const indentMap = {
+    nextjs: { indent: 10, gap: "\n\n" },
+    sveltekit: { indent: 2, gap: "\n\n" },
+    remix: { indent: 6, gap: "\n" },
+    astro: { indent: 6, gap: "\n" },
+    nuxt: { indent: 4, gap: "\n" }
+  };
+  const { indent, gap } = indentMap[framework];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const parts = [];
+  const desc = entity.metadata.description ?? `Learn more about ${entity.name}.`;
+  parts.push(
+    useTailwind ? `${pad}<section className="space-y-3">
+${inner}<p className="text-base leading-7 text-neutral-700">${escapeHtml(desc)}</p>
+${pad}</section>` : `${pad}<section>
+${inner}<p>${escapeHtml(desc)}</p>
+${pad}</section>`
+  );
+  const attrs = entity.metadata.attributes ?? {};
+  const attrKeys = Object.keys(attrs);
+  if (attrKeys.length > 0) {
+    const rows = attrKeys.map(
+      (key) => useTailwind ? `${inner}  <tr>
+${inner}    <td className="pr-4 font-medium text-neutral-950">${escapeHtml(key)}</td>
+${inner}    <td className="text-neutral-700">${escapeHtml(attrs[key])}</td>
+${inner}  </tr>` : `${inner}  <tr>
+${inner}    <td>${escapeHtml(key)}</td>
+${inner}    <td>${escapeHtml(attrs[key])}</td>
+${inner}  </tr>`
+    ).join("\n");
+    parts.push(
+      useTailwind ? `${pad}<section className="space-y-3 rounded-3xl bg-amber-50 p-6">
+${inner}<h2 className="text-xl font-medium text-neutral-950">Key Details</h2>
+${inner}<table className="w-full">
+${inner}  <tbody>
+${rows}
+${inner}  </tbody>
+${inner}</table>
+${pad}</section>` : `${pad}<section>
+${inner}<h2>Key Details</h2>
+${inner}<table>
+${inner}  <tbody>
+${rows}
+${inner}  </tbody>
+${inner}</table>
+${pad}</section>`
+    );
+  }
+  const tags = entity.metadata.tags ?? [];
+  if (tags.length > 0) {
+    const tagList = tags.map((t) => `${inner}  <li>${escapeHtml(t)}</li>`).join("\n");
+    parts.push(
+      useTailwind ? `${pad}<section className="space-y-3">
+${inner}<h2 className="text-xl font-medium text-neutral-950">Related Topics</h2>
+${inner}<ul className="list-disc pl-6 text-neutral-700">
+${tagList}
+${inner}</ul>
+${pad}</section>` : `${pad}<section>
+${inner}<h2>Related Topics</h2>
+${inner}<ul>
+${tagList}
+${inner}</ul>
+${pad}</section>`
+    );
+  }
+  return parts.join(gap);
 }
 var YMYL_DISCLAIMER_TEXT = "This content is for informational purposes only and does not constitute professional advice. Consult a qualified professional before making any decisions based on this information.";
 function renderYmylDisclaimer(framework, entity) {
@@ -990,6 +1105,7 @@ function buildHydrationMap(entity, siteUrl, enriched) {
     "__ENTITY_DESCRIPTION__": safeJsonStringify(description),
     "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
     "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
+    "__ENTITY_OG_IMAGE__": safeJsonStringify(entity.metadata.ogImage ?? ""),
     "__SITE_URL__": safeJsonStringify(resolvedSiteUrl),
     "__ENTITY_SCHEMA_JSONLD__": JSON.stringify(schemaJsonLd, null, 2)
   };
@@ -1000,7 +1116,9 @@ function hydrateTemplate(template, entity, framework, siteUrl, enriched) {
   if (enriched?.content) {
     sectionsHtml = renderEnrichedContent(framework, enriched.content);
   } else {
-    sectionsHtml = renderSections(framework, getSections(intent));
+    const fallback = buildFallbackContent(entity, framework);
+    const todoSections = renderSections(framework, getSections(intent));
+    sectionsHtml = fallback + "\n\n" + todoSections;
   }
   const replacements = {
     ...buildHydrationMap(entity, siteUrl, enriched),
@@ -1149,12 +1267,13 @@ function sitemapChangefreq(entity) {
   const { intent } = classifyIntent(entity.name);
   return intent === "commercial" || intent === "comparison" ? "weekly" : "monthly";
 }
+var SITEMAP_MAX_URLS = 45e3;
 function buildSitemap(siteUrl, entities) {
   const lastmod = todayDate();
   const urls = entities.map(
     (entity) => `  <url>
     <loc>${siteUrl}/${entity.slug}</loc>
-    <lastmod>${lastmod}</lastmod>
+    <lastmod>${entity.metadata.enrichedAt ?? entity.metadata.generatedAt ?? lastmod}</lastmod>
     <changefreq>${sitemapChangefreq(entity)}</changefreq>
     <priority>${sitemapPriority(entity)}</priority>
   </url>`
@@ -1166,6 +1285,32 @@ function buildSitemap(siteUrl, entities) {
     "</urlset>",
     ""
   ].join("\n");
+}
+function buildSitemapIndex(siteUrl, entities) {
+  if (entities.length <= SITEMAP_MAX_URLS) return null;
+  const chunks = [];
+  for (let i = 0; i < entities.length; i += SITEMAP_MAX_URLS) {
+    chunks.push(entities.slice(i, i + SITEMAP_MAX_URLS));
+  }
+  const lastmod = todayDate();
+  const sitemaps = chunks.map((chunk, i) => ({
+    name: `sitemap-${i + 1}.xml`,
+    content: buildSitemap(siteUrl, chunk)
+  }));
+  const indexEntries = sitemaps.map(
+    (sm) => `  <sitemap>
+    <loc>${siteUrl}/${sm.name}</loc>
+    <lastmod>${lastmod}</lastmod>
+  </sitemap>`
+  ).join("\n");
+  const index = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    indexEntries,
+    "</sitemapindex>",
+    ""
+  ].join("\n");
+  return { index, sitemaps };
 }
 function buildRobots(siteUrl) {
   return [
@@ -1191,12 +1336,44 @@ function inferSchemaType(entity) {
   return "WebPage";
 }
 function buildSchema(siteUrl, entities) {
+  return entities.map((entity) => {
+    const record = {
+      "@context": "https://schema.org",
+      "@type": inferSchemaType(entity),
+      name: entity.metadata.title ?? entity.name,
+      description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
+      url: `${siteUrl}/${entity.slug}`
+    };
+    const attrs = entity.metadata.attributes ?? {};
+    if (attrs.ratingValue && attrs.ratingCount) {
+      record.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: attrs.ratingValue,
+        bestRating: attrs.bestRating ?? "5",
+        ratingCount: attrs.ratingCount
+      };
+    }
+    return record;
+  });
+}
+function buildBreadcrumbSchema(siteUrl, entities) {
   return entities.map((entity) => ({
     "@context": "https://schema.org",
-    "@type": inferSchemaType(entity),
-    name: entity.metadata.title ?? entity.name,
-    description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
-    url: `${siteUrl}/${entity.slug}`
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: entity.metadata.title ?? entity.name,
+        item: `${siteUrl}/${entity.slug}`
+      }
+    ]
   }));
 }
 function countSharedTags(left, right) {
@@ -1261,13 +1438,15 @@ function buildHreflang(siteUrl, entities) {
   ].join("\n");
   return lines;
 }
-function buildInternalLinks(entities) {
+var DEFAULT_MAX_LINKS = 5;
+function buildInternalLinks(entities, maxLinks) {
+  const limit = maxLinks ?? DEFAULT_MAX_LINKS;
   return entities.map((entity) => ({
     entity: entity.slug,
     relatedEntities: entities.filter((candidate) => candidate.slug !== entity.slug).map((candidate) => {
       const { score, reason } = relatedScore(entity, candidate);
       return { slug: candidate.slug, score, reason };
-    }).filter((candidate) => candidate.score > 0).sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug)).slice(0, 5).map((candidate) => ({ slug: candidate.slug, reason: candidate.reason }))
+    }).filter((candidate) => candidate.score > 0).sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug)).slice(0, limit).map((candidate) => ({ slug: candidate.slug, reason: candidate.reason }))
   }));
 }
 function buildFaqSchema(entity, enrichedFaqs) {
@@ -1291,10 +1470,12 @@ async function technical(options) {
   const outputRoot = options.output ?? "public";
   const siteUrl = options.site.replace(/\/$/, "");
   const technicalRoot = import_node_path3.default.join(outputRoot, "sophon");
-  const sitemap = buildSitemap(siteUrl, options.entities);
+  const sitemapIndexResult = buildSitemapIndex(siteUrl, options.entities);
+  const sitemap = sitemapIndexResult ? null : buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
-  const internalLinks = buildInternalLinks(options.entities);
+  const breadcrumbs = buildBreadcrumbSchema(siteUrl, options.entities);
+  const internalLinks = buildInternalLinks(options.entities, options.maxLinks);
   const hreflang = buildHreflang(siteUrl, options.entities);
   const faqSchemas = [];
   for (const entity of options.entities) {
@@ -1304,10 +1485,23 @@ async function technical(options) {
       faqSchemas.push({ slug: entity.slug, faq });
     }
   }
+  const sitemapWrites = [];
+  if (sitemapIndexResult) {
+    sitemapWrites.push(
+      writeGeneratedFile(import_node_path3.default.join(outputRoot, "sitemap.xml"), sitemapIndexResult.index, { force: options.force })
+    );
+    for (const sm of sitemapIndexResult.sitemaps) {
+      sitemapWrites.push(
+        writeGeneratedFile(import_node_path3.default.join(outputRoot, sm.name), sm.content, { force: options.force })
+      );
+    }
+  } else {
+    sitemapWrites.push(
+      writeGeneratedFile(import_node_path3.default.join(outputRoot, "sitemap.xml"), sitemap, { force: options.force })
+    );
+  }
   await Promise.all([
-    writeGeneratedFile(import_node_path3.default.join(outputRoot, "sitemap.xml"), sitemap, {
-      force: options.force
-    }),
+    ...sitemapWrites,
     writeGeneratedFile(import_node_path3.default.join(outputRoot, "robots.txt"), robots, {
       force: options.force
     }),
@@ -1315,6 +1509,12 @@ async function technical(options) {
 `, {
       force: options.force
     }),
+    writeGeneratedFile(
+      import_node_path3.default.join(technicalRoot, "breadcrumbs.json"),
+      `${JSON.stringify(breadcrumbs, null, 2)}
+`,
+      { force: options.force }
+    ),
     writeGeneratedFile(
       import_node_path3.default.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
@@ -1333,8 +1533,13 @@ async function technical(options) {
       { force: options.force }
     ) : Promise.resolve()
   ]);
-  console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  if (sitemapIndexResult) {
+    console.log(`sitemap-index.xml -> ${sitemapIndexResult.sitemaps.length} sitemaps (${options.entities.length} URLs)`);
+  } else {
+    console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  }
   console.log(`schema.json -> ${schema.length} records`);
+  console.log(`breadcrumbs.json -> ${breadcrumbs.length} records`);
   console.log(`faq-schema.json -> ${faqSchemas.length} FAQ pages`);
   console.log(`internal-links.json -> ${internalLinks.length} nodes`);
   console.log(`hreflang.txt -> ${options.entities.length} entity scaffolds`);
@@ -1452,6 +1657,8 @@ function countAiPatterns(text) {
 // src/core/enrich.ts
 var MODEL = "claude-sonnet-4-20250514";
 var DEFAULT_CONCURRENCY = 3;
+var DEFAULT_MAX_RETRIES = 3;
+var RETRY_BASE_DELAY_MS = 1e3;
 var SYSTEM_PROMPT = `You are a programmatic SEO content generator.
 Generate structured page content for the provided entity.
 
@@ -1493,12 +1700,12 @@ function buildUserPrompt(entity) {
 }
 async function enrich(options) {
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
+  if (!apiKey && !options.dryRun) {
+    throw new Error("ANTHROPIC_API_KEY is required for enrichment. Use --dry-run to preview prompts without calling the API.");
   }
   const outputRoot = options.output ?? import_node_path4.default.join("data", "enriched");
-  const client = new import_sdk.default({ apiKey });
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   const toEnrich = [];
   for (const entity of options.entities) {
     const outputPath = import_node_path4.default.join(outputRoot, entity.slug, "content.json");
@@ -1516,10 +1723,23 @@ async function enrich(options) {
     console.log("All entities already enriched. Use --force to re-enrich.");
     return;
   }
+  if (options.dryRun) {
+    console.log(`Dry run: ${toEnrich.length} entities would be enriched
+`);
+    for (const entity of toEnrich) {
+      console.log(`--- ${entity.slug} ---`);
+      console.log(`System prompt: (${SYSTEM_PROMPT.length} chars)`);
+      console.log(`User prompt:
+${buildUserPrompt(entity)}
+`);
+    }
+    return;
+  }
+  const client = new import_sdk.default({ apiKey });
   console.log(`Enriching ${toEnrich.length} entities (${options.entities.length - toEnrich.length} cached, concurrency: ${concurrency})...`);
   let completed = 0;
   let failed = 0;
-  async function enrichOne(entity) {
+  async function enrichWithRetry(entity, attempt) {
     try {
       const response = await client.messages.create({
         model: MODEL,
@@ -1535,6 +1755,7 @@ async function enrich(options) {
       });
       const raw = JSON.parse(messageText(response));
       const humanized = humanizeContent(raw);
+      humanized.enrichedAt = (/* @__PURE__ */ new Date()).toISOString();
       await writeGeneratedFile(
         import_node_path4.default.join(outputRoot, entity.slug, "content.json"),
         `${JSON.stringify(humanized, null, 2)}
@@ -1544,13 +1765,20 @@ async function enrich(options) {
       completed++;
       console.log(`  \u2713 ${entity.slug} (${completed}/${toEnrich.length})`);
     } catch (error) {
+      const isRetryable = error instanceof Error && /429|rate.limit|overloaded|500|502|503|529/i.test(error.message);
+      if (isRetryable && attempt < maxRetries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`  \u27F3 ${entity.slug}: retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return enrichWithRetry(entity, attempt + 1);
+      }
       failed++;
       console.error(`  \u2717 ${entity.slug}:`, error instanceof Error ? error.message : error);
     }
   }
   const pool = [];
   for (const entity of toEnrich) {
-    const promise = enrichOne(entity);
+    const promise = enrichWithRetry(entity, 0);
     pool.push(promise);
     if (pool.length >= concurrency) {
       await Promise.race(pool);
@@ -1718,9 +1946,119 @@ async function hasPattern(files, pattern) {
   }
   return false;
 }
+async function validateJsonLdSchema(files) {
+  const requiredFields = ["@context", "@type", "name"];
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|astro|vue|svelte|html|json)$/i.test(file)) continue;
+    try {
+      const content = await (0, import_promises6.readFile)(file, "utf8");
+      const matches = content.match(/"@context"\s*:\s*"https:\/\/schema\.org"/g);
+      if (matches) {
+        const hasType = /"@type"\s*:/.test(content);
+        const hasName = /"name"\s*:/.test(content);
+        if (!hasType || !hasName) {
+          return { valid: false, details: `JSON-LD in ${import_node_path6.default.basename(file)} missing required fields (need: ${requiredFields.join(", ")})` };
+        }
+        return { valid: true, details: "JSON-LD schema has required fields" };
+      }
+    } catch {
+    }
+  }
+  return { valid: false, details: "No JSON-LD schema found" };
+}
+async function checkDuplicateMeta(files) {
+  const titles = /* @__PURE__ */ new Map();
+  const descriptions = /* @__PURE__ */ new Map();
+  const duplicates = [];
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|astro|vue|svelte)$/i.test(file)) continue;
+    try {
+      const content = await (0, import_promises6.readFile)(file, "utf8");
+      const titleMatch = content.match(/title:\s*["'`]([^"'`]+)["'`]/);
+      const descMatch = content.match(/description:\s*["'`]([^"'`]+)["'`]/);
+      if (titleMatch?.[1]) {
+        const title = titleMatch[1];
+        if (titles.has(title)) {
+          duplicates.push(`Duplicate title "${title.slice(0, 40)}..." in ${import_node_path6.default.basename(file)} and ${titles.get(title)}`);
+        }
+        titles.set(title, import_node_path6.default.basename(file));
+      }
+      if (descMatch?.[1]) {
+        const desc = descMatch[1];
+        if (descriptions.has(desc)) {
+          duplicates.push(`Duplicate description in ${import_node_path6.default.basename(file)} and ${descriptions.get(desc)}`);
+        }
+        descriptions.set(desc, import_node_path6.default.basename(file));
+      }
+    } catch {
+    }
+  }
+  return {
+    unique: duplicates.length === 0,
+    details: duplicates.length > 0 ? duplicates.slice(0, 3).join("; ") : "No duplicate titles or descriptions detected"
+  };
+}
+async function checkHeadingHierarchy(files) {
+  let checked = 0;
+  let violations = 0;
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|astro|vue|svelte|html)$/i.test(file)) continue;
+    try {
+      const content = await (0, import_promises6.readFile)(file, "utf8");
+      const headings = [...content.matchAll(/<h([1-6])[\s>]/gi)].map((m) => Number.parseInt(m[1], 10));
+      if (headings.length === 0) continue;
+      checked++;
+      if (!headings.includes(1)) {
+        violations++;
+        continue;
+      }
+      for (let i = 1; i < headings.length; i++) {
+        if (headings[i] > headings[i - 1] + 1) {
+          violations++;
+          break;
+        }
+      }
+    } catch {
+    }
+  }
+  if (checked === 0) return { valid: true, details: "No heading hierarchy to check" };
+  return {
+    valid: violations === 0,
+    details: violations > 0 ? `${violations}/${checked} files have heading hierarchy issues (skipped levels or missing H1)` : "Heading hierarchy is clean"
+  };
+}
+async function checkImgAltText(files) {
+  let totalImages = 0;
+  let missingAlt = 0;
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|astro|vue|svelte|html)$/i.test(file)) continue;
+    try {
+      const content = await (0, import_promises6.readFile)(file, "utf8");
+      const imgs = content.match(/<img\b[^>]*>/gi) ?? [];
+      totalImages += imgs.length;
+      for (const img of imgs) {
+        if (!/\balt\s*=/i.test(img)) {
+          missingAlt++;
+        }
+      }
+    } catch {
+    }
+  }
+  if (totalImages === 0) return { valid: true, details: "No images found" };
+  return {
+    valid: missingAlt === 0,
+    details: missingAlt > 0 ? `${missingAlt}/${totalImages} images missing alt text` : `All ${totalImages} images have alt text`
+  };
+}
 async function audit(options = {}) {
   const root = options.root ?? process.cwd();
   const files = await walkFiles(root);
+  const [jsonLdValidation, duplicateMeta, headingCheck, imgAltCheck] = await Promise.all([
+    validateJsonLdSchema(files),
+    checkDuplicateMeta(files),
+    checkHeadingHierarchy(files),
+    checkImgAltText(files)
+  ]);
   const checks = [
     {
       label: "Sitemap",
@@ -1755,8 +2093,32 @@ async function audit(options = {}) {
     {
       label: "Structured data (JSON-LD)",
       implemented: await hasPattern(files, /application\/ld\+json|"@context"\s*:\s*"https:\/\/schema.org"/i),
-      weight: 15,
+      weight: 10,
       details: "Detected by JSON-LD script or schema.org context"
+    },
+    {
+      label: "JSON-LD schema validity",
+      implemented: jsonLdValidation.valid,
+      weight: 5,
+      details: jsonLdValidation.details
+    },
+    {
+      label: "Unique titles and descriptions",
+      implemented: duplicateMeta.unique,
+      weight: 10,
+      details: duplicateMeta.details
+    },
+    {
+      label: "Heading hierarchy",
+      implemented: headingCheck.valid,
+      weight: 5,
+      details: headingCheck.details
+    },
+    {
+      label: "Image alt text",
+      implemented: imgAltCheck.valid,
+      weight: 5,
+      details: imgAltCheck.details
     },
     {
       label: "404 handling",
@@ -1971,13 +2333,13 @@ function findMatchingPage(entity, gscPages, siteUrl) {
   );
   if (exact) return exact;
   const endsWith = gscPages.find((p) => {
-    const path10 = urlPath(p.page);
-    return path10 === `/${slug}` || path10 === `/${slug}/`;
+    const path11 = urlPath(p.page);
+    return path11 === `/${slug}` || path11 === `/${slug}/`;
   });
   if (endsWith) return endsWith;
   const contains = gscPages.find((p) => {
-    const path10 = urlPath(p.page);
-    return path10.includes(`/${slug}`);
+    const path11 = urlPath(p.page);
+    return path11.includes(`/${slug}`);
   });
   if (contains) return contains;
   const entitySlug = slugify(entity.name);
@@ -2414,7 +2776,7 @@ function fleschKincaid(text) {
   const score = 206.835 - 1.015 * (words.length / sentences) - 84.6 * (syllables / words.length);
   return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
 }
-function checkHeadingHierarchy(text) {
+function checkHeadingHierarchy2(text) {
   const headings = [...text.matchAll(/^(#{1,6})\s+.+$/gm)].map((m) => m[1].length);
   if (headings.length === 0) {
     return { valid: false, detail: "No headings found" };
@@ -2483,7 +2845,7 @@ function scoreContent(entity, content) {
     detail: `Flesch score: ${fk}`
   });
   total += readScore;
-  const headingCheck = checkHeadingHierarchy(content);
+  const headingCheck = checkHeadingHierarchy2(content);
   const headingScore = headingCheck.valid ? 20 : 5;
   checks.push({
     label: "Heading hierarchy",
@@ -2550,6 +2912,68 @@ function scoreAllContent(entities, contentMap) {
 }
 
 // src/core/keywords.ts
+var import_promises8 = require("fs/promises");
+function parseCsvLine(line) {
+  const columns = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  columns.push(current.trim());
+  return columns;
+}
+function detectColumnIndex(headers, aliases) {
+  const lower = headers.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  for (const alias of aliases) {
+    const idx = lower.indexOf(alias.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+async function importKeywordData(csvPath) {
+  const raw = await (0, import_promises8.readFile)(csvPath, "utf8");
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return /* @__PURE__ */ new Map();
+  const headers = parseCsvLine(lines[0]);
+  const kwIdx = detectColumnIndex(headers, ["keyword", "query", "search term", "term", "keyphrase"]);
+  const volIdx = detectColumnIndex(headers, ["volume", "search volume", "avg monthly searches", "monthly volume"]);
+  const diffIdx = detectColumnIndex(headers, ["difficulty", "kd", "keyword difficulty", "competition"]);
+  const cpcIdx = detectColumnIndex(headers, ["cpc", "cost per click", "avg cpc"]);
+  if (kwIdx === -1) return /* @__PURE__ */ new Map();
+  const result = /* @__PURE__ */ new Map();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const keyword = cols[kwIdx]?.trim();
+    if (!keyword) continue;
+    result.set(slugify(keyword), {
+      keyword,
+      volume: volIdx !== -1 ? Number.parseInt(cols[volIdx], 10) || void 0 : void 0,
+      difficulty: diffIdx !== -1 ? Number.parseFloat(cols[diffIdx]) || void 0 : void 0,
+      cpc: cpcIdx !== -1 ? Number.parseFloat(cols[cpcIdx].replace(/[$€£]/g, "")) || void 0 : void 0
+    });
+  }
+  return result;
+}
 var HIGH_VOLUME_MODIFIERS = /\b(?:best|top|free|cheap|review|how to|what is)\b/i;
 var MEDIUM_VOLUME_MODIFIERS = /\b(?:vs|alternative|comparison|pricing|cost)\b/i;
 var LONG_TAIL_THRESHOLD = 4;
@@ -2591,8 +3015,29 @@ function calculateOpportunity(volume, difficulty, intent) {
   const compositeScore = Math.round(volumeScore * difficultyMultiplier * intentMultiplier * 2);
   return Math.min(100, Math.max(0, compositeScore));
 }
-function analyzeKeyword(entity) {
+function difficultyFromScore(score) {
+  if (score <= 30) return "easy";
+  if (score <= 60) return "medium";
+  return "hard";
+}
+function analyzeKeyword(entity, imported) {
   const { intent } = classifyIntent(entity.name);
+  const row = imported?.get(entity.slug);
+  if (row) {
+    const volume2 = row.volume ?? estimateVolume(entity.name);
+    const difficulty2 = row.difficulty !== void 0 ? difficultyFromScore(row.difficulty) : estimateDifficulty(entity.name);
+    const cpc = row.cpc !== void 0 ? `$${row.cpc.toFixed(2)}` : estimateCpc(intent);
+    return {
+      keyword: entity.name,
+      slug: entity.slug,
+      estimatedMonthlyVolume: volume2,
+      difficulty: difficulty2,
+      intent,
+      cpcEstimate: cpc,
+      opportunityScore: calculateOpportunity(volume2, difficulty2, intent),
+      dataSource: "imported"
+    };
+  }
   const volume = estimateVolume(entity.name);
   const difficulty = estimateDifficulty(entity.name);
   return {
@@ -2602,11 +3047,12 @@ function analyzeKeyword(entity) {
     difficulty,
     intent,
     cpcEstimate: estimateCpc(intent),
-    opportunityScore: calculateOpportunity(volume, difficulty, intent)
+    opportunityScore: calculateOpportunity(volume, difficulty, intent),
+    dataSource: "heuristic"
   };
 }
-function analyzeKeywords(entities) {
-  return entities.map(analyzeKeyword).sort((a, b) => b.opportunityScore - a.opportunityScore);
+function analyzeKeywords(entities, imported) {
+  return entities.map((e) => analyzeKeyword(e, imported)).sort((a, b) => b.opportunityScore - a.opportunityScore);
 }
 
 // src/core/blog.ts
@@ -2687,6 +3133,125 @@ async function blog(options) {
   console.log(`Blog outlines generated: ${outlines.length} posts for ${options.entities.length} entities`);
   return outlines;
 }
+
+// src/core/diff.ts
+var import_promises9 = require("fs/promises");
+var import_node_path10 = __toESM(require("path"));
+var ADAPTERS2 = {
+  nextjs,
+  astro,
+  nuxt,
+  sveltekit,
+  remix
+};
+function defaultOutputRoot2(framework) {
+  switch (framework) {
+    case "nextjs":
+      return "app";
+    case "astro":
+      return import_node_path10.default.join("src", "pages");
+    case "nuxt":
+      return "pages";
+    case "sveltekit":
+      return import_node_path10.default.join("src", "routes");
+    case "remix":
+      return import_node_path10.default.join("app", "routes");
+  }
+}
+function buildMainPagePath2(framework, outputRoot, slug) {
+  switch (framework) {
+    case "nextjs":
+      return import_node_path10.default.join(outputRoot, slug, "page.tsx");
+    case "astro":
+      return import_node_path10.default.join(outputRoot, `${slug}.astro`);
+    case "nuxt":
+      return import_node_path10.default.join(outputRoot, `${slug}.vue`);
+    case "sveltekit":
+      return import_node_path10.default.join(outputRoot, slug, "+page.svelte");
+    case "remix":
+      return import_node_path10.default.join(outputRoot, `${slug}.tsx`);
+  }
+}
+function isManagedBySophon2(content) {
+  return content.includes("SOPHON GENERATED") || content.includes("Sophon generated");
+}
+async function diffGenerate(options) {
+  const outputRoot = options.output ?? defaultOutputRoot2(options.framework);
+  const changes = [];
+  const entitySlugs = new Set(options.entities.map((e) => e.slug));
+  for (const entity of options.entities) {
+    const pagePath = buildMainPagePath2(options.framework, outputRoot, entity.slug);
+    let existingContent = null;
+    try {
+      existingContent = await (0, import_promises9.readFile)(pagePath, "utf8");
+    } catch {
+    }
+    if (!existingContent) {
+      changes.push({ type: "new", path: pagePath, slug: entity.slug });
+      continue;
+    }
+    if (!isManagedBySophon2(existingContent)) {
+      changes.push({ type: "unchanged", path: pagePath, slug: entity.slug });
+      continue;
+    }
+    const enriched = await loadEnrichedContent(entity.slug);
+    const template = ADAPTERS2[options.framework]({
+      entities: [entity],
+      framework: options.framework,
+      site: options.site
+    });
+    const normalizeForCompare = (s) => s.replace(/\s+/g, " ").trim();
+    if (normalizeForCompare(existingContent) !== normalizeForCompare(template)) {
+      changes.push({ type: "updated", path: pagePath, slug: entity.slug });
+    } else {
+      changes.push({ type: "unchanged", path: pagePath, slug: entity.slug });
+    }
+  }
+  try {
+    const existingFiles = await scanExistingPages(outputRoot, options.framework);
+    for (const { slug, filePath } of existingFiles) {
+      if (!entitySlugs.has(slug)) {
+        try {
+          const content = await (0, import_promises9.readFile)(filePath, "utf8");
+          if (isManagedBySophon2(content)) {
+            changes.push({ type: "removed", path: filePath, slug });
+          }
+        } catch {
+        }
+      }
+    }
+  } catch {
+  }
+  return {
+    newPages: changes.filter((c) => c.type === "new").length,
+    updatedPages: changes.filter((c) => c.type === "updated").length,
+    unchangedPages: changes.filter((c) => c.type === "unchanged").length,
+    removedPages: changes.filter((c) => c.type === "removed").length,
+    changes
+  };
+}
+async function scanExistingPages(outputRoot, framework) {
+  const results = [];
+  try {
+    const entries = await (0, import_promises9.readdir)(outputRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = import_node_path10.default.join(outputRoot, entry.name);
+      if (entry.isDirectory()) {
+        if (framework === "nextjs") {
+          results.push({ slug: entry.name, filePath: import_node_path10.default.join(fullPath, "page.tsx") });
+        } else if (framework === "sveltekit") {
+          results.push({ slug: entry.name, filePath: import_node_path10.default.join(fullPath, "+page.svelte") });
+        }
+      } else {
+        const ext = import_node_path10.default.extname(entry.name);
+        const slug = import_node_path10.default.basename(entry.name, ext);
+        results.push({ slug, filePath: fullPath });
+      }
+    }
+  } catch {
+  }
+  return results;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   DEFAULT_PATTERNS,
@@ -2699,11 +3264,14 @@ async function blog(options) {
   astro,
   audit,
   blog,
+  buildBreadcrumbSchema,
   buildFaqSchema,
   buildMetricsFromRows,
+  buildSitemapIndex,
   calculateScore,
   classifyIntent,
   countAiPatterns,
+  diffGenerate,
   discover,
   enrich,
   fetchGSCData,
@@ -2717,6 +3285,7 @@ async function blog(options) {
   gradeFromScore,
   humanize,
   humanizeContent,
+  importKeywordData,
   isSophonFile,
   loadEnrichedContent,
   mapEntitiesToGSC,

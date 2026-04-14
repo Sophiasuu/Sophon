@@ -10,12 +10,12 @@ Sophon ships a set of composable skills. Start with **sophon** to load the full 
 |-------|---------|
 | `sophon` | Master context — entity model, adapter map, operating rules |
 | `discover` | Find entities from a seed keyword or CSV |
-| `generate` | Generate one static page per entity with JSON-LD schema |
-| `technical` | Sitemap, robots.txt, schema, FAQ schema, internal links |
-| `enrich` | AI-powered content enrichment via Claude (concurrent, cached) |
+| `generate` | Generate one static page per entity with JSON-LD schema and fallback content |
+| `technical` | Sitemap (with index), robots.txt, schema (BreadcrumbList, AggregateRating), FAQ schema, configurable internal links |
+| `enrich` | AI-powered content enrichment via Claude (concurrent, cached, retry, dry-run) |
 | `optimize` | GSC-powered performance analysis and optimization |
 | `blog` | Generate supporting blog outlines per entity |
-| `keywords` | Keyword difficulty and opportunity analysis |
+| `keywords` | Keyword difficulty and opportunity analysis with CSV data import |
 | `quality` | Content quality scoring (readability, structure) |
 | `humanize` | Remove AI-isms and mechanical patterns from text |
 | `run` | Full pipeline in one command |
@@ -35,16 +35,18 @@ npm run build:skills
 | `sophon discover` | Normalize entities from a seed keyword or CSV |
 | `sophon propose` | Generate intent-aware entity suggestions with priority and confidence |
 | `sophon generate` | Scaffold one page per entity for the target framework |
-| `sophon technical` | Emit sitemap, robots.txt, JSON-LD, internal links, hreflang |
-| `sophon enrich` | AI content enrichment via Claude (requires `ANTHROPIC_API_KEY`) |
+| `sophon technical` | Emit sitemap (with index), robots.txt, JSON-LD (BreadcrumbList, AggregateRating), internal links, hreflang |
+| `sophon enrich` | AI content enrichment via Claude (requires `ANTHROPIC_API_KEY`, supports `--dry-run`) |
 | `sophon run` | Full pipeline: discover → generate → technical → enrich |
-| `sophon audit` | Scan existing SEO implementation, weighted 0-100 score |
+| `sophon audit` | Scan existing SEO implementation, 12 weighted checks, 0-100 score |
 | `sophon score` | Entity health scoring (metadata, intent, slug quality) |
 | `sophon optimize` | GSC performance analysis with actionable recommendations |
 | `sophon blog` | Generate supporting blog outlines per entity |
-| `sophon keywords` | Keyword difficulty and opportunity analysis |
+| `sophon keywords` | Keyword difficulty and opportunity analysis (supports `--keyword-data` CSV import) |
 | `sophon quality` | Content quality scoring (readability, heading structure) |
 | `sophon humanize` | Remove AI-isms from text content |
+| `sophon diff` | Preview what pages would change before regenerating (new/updated/removed) |
+| `sophon stale` | List entities older than N days for freshness management |
 
 ## Quick Start
 
@@ -66,7 +68,10 @@ npx @sophonn/sophon score
 npx @sophonn/sophon optimize --site https://example.com
 npx @sophonn/sophon blog
 npx @sophonn/sophon keywords
+npx @sophonn/sophon keywords --keyword-data ./ahrefs-export.csv
 npx @sophonn/sophon quality
+npx @sophonn/sophon diff --framework nextjs
+npx @sophonn/sophon stale --days 90
 ```
 
 ## Security
@@ -77,13 +82,13 @@ npx @sophonn/sophon quality
 
 ## Testing
 
-224 tests across 17 test files. Run with:
+302 tests across 18 test files. Run with:
 
 ```bash
 npm test
 ```
 
-Covers: utils, discover, intent, propose, score, sections, technical, generate, enrich, audit, teach, optimize, humanize, quality, keywords, blog, and all 5 framework adapters.
+Covers: utils, discover, intent, propose, score, sections, technical, generate, enrich, audit, teach, optimize, humanize, quality, keywords, blog, diff, and all 5 framework adapters.
 
 ## Example User Prompts
 

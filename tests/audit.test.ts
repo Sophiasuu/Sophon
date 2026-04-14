@@ -19,10 +19,11 @@ describe("audit", () => {
   it("returns a score and grade for an empty project", async () => {
     const result = await audit({ root: tmpDir });
 
-    expect(result.score).toBe(0);
+    // New deep checks (heading hierarchy, img alt, unique meta) pass vacuously with no files
+    expect(result.score).toBe(20);
     expect(result.maxScore).toBeGreaterThan(0);
     expect(result.grade).toBe("F");
-    expect(result.checks.length).toBe(8);
+    expect(result.checks.length).toBe(12);
   });
 
   it("detects sitemap.xml in public/", async () => {
@@ -127,7 +128,7 @@ describe("audit", () => {
     await writeFile(path.join(tmpDir, "public", "robots.txt"), "User-agent: *");
 
     const result = await audit({ root: tmpDir });
-    expect(result.score).toBe(25); // 15 + 10
+    expect(result.score).toBe(45); // 15 + 10 + vacuous passes (heading 5 + alt 5 + unique 10)
   });
 
   it("normalizes score to 0-100 range", async () => {
@@ -149,5 +150,118 @@ describe("audit", () => {
     const canonicalCheck = result.checks.find((c) => c.label === "Canonical tags");
 
     expect(canonicalCheck?.implemented).toBe(false);
+  });
+
+  // ── Deep validation tests ────────────────────────────────
+
+  it("validates JSON-LD schema with required fields", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.tsx"),
+      `const schema = { "@context": "https://schema.org", "@type": "WebPage", "name": "Test Page" };`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const jsonLdCheck = result.checks.find((c) => c.label === "JSON-LD schema validity");
+    expect(jsonLdCheck?.implemented).toBe(true);
+  });
+
+  it("fails JSON-LD validation when @type is missing", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.tsx"),
+      `const schema = { "@context": "https://schema.org" };`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const jsonLdCheck = result.checks.find((c) => c.label === "JSON-LD schema validity");
+    expect(jsonLdCheck?.implemented).toBe(false);
+  });
+
+  it("detects duplicate titles across files", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "page-a.tsx"),
+      `export const meta = { title: "Same Title" };`,
+    );
+    await writeFile(
+      path.join(tmpDir, "pages", "page-b.tsx"),
+      `export const meta = { title: "Same Title" };`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const dupeCheck = result.checks.find((c) => c.label === "Unique titles and descriptions");
+    expect(dupeCheck?.implemented).toBe(false);
+  });
+
+  it("passes unique meta when titles differ", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "page-a.tsx"),
+      `export const meta = { title: "Page A Title" };`,
+    );
+    await writeFile(
+      path.join(tmpDir, "pages", "page-b.tsx"),
+      `export const meta = { title: "Page B Title" };`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const dupeCheck = result.checks.find((c) => c.label === "Unique titles and descriptions");
+    expect(dupeCheck?.implemented).toBe(true);
+  });
+
+  it("detects heading hierarchy violations", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.html"),
+      `<html><body><h1>Title</h1><h3>Skipped H2</h3></body></html>`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const headingCheck = result.checks.find((c) => c.label === "Heading hierarchy");
+    expect(headingCheck?.implemented).toBe(false);
+  });
+
+  it("passes heading hierarchy when levels are sequential", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.html"),
+      `<html><body><h1>Title</h1><h2>Section</h2><h3>Subsection</h3></body></html>`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const headingCheck = result.checks.find((c) => c.label === "Heading hierarchy");
+    expect(headingCheck?.implemented).toBe(true);
+  });
+
+  it("detects images missing alt text", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.html"),
+      `<html><body><img src="photo.jpg"><img src="logo.png" alt="Logo"></body></html>`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const imgCheck = result.checks.find((c) => c.label === "Image alt text");
+    expect(imgCheck?.implemented).toBe(false);
+    expect(imgCheck?.details).toContain("1/2 images missing alt text");
+  });
+
+  it("passes image alt text when all images have alt", async () => {
+    await mkdir(path.join(tmpDir, "pages"), { recursive: true });
+    await writeFile(
+      path.join(tmpDir, "pages", "index.html"),
+      `<html><body><img src="photo.jpg" alt="A photo"><img src="logo.png" alt="Logo"></body></html>`,
+    );
+
+    const result = await audit({ root: tmpDir });
+    const imgCheck = result.checks.find((c) => c.label === "Image alt text");
+    expect(imgCheck?.implemented).toBe(true);
+    expect(imgCheck?.details).toContain("All 2 images have alt text");
+  });
+
+  it("includes 12 total checks", async () => {
+    const result = await audit({ root: tmpDir });
+    expect(result.checks.length).toBe(12);
   });
 });

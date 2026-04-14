@@ -445,3 +445,121 @@ describe("renderYmylDisclaimer", () => {
     }
   });
 });
+
+// ── Fallback content tests ─────────────────────────────────
+
+describe("fallback content generation", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), "sophon-fallback-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("generates metadata-based content when no enrichment exists", async () => {
+    const entity = makeEntity({
+      metadata: {
+        title: "CRM Pricing",
+        description: "Compare CRM pricing plans.",
+        tags: ["crm", "pricing"],
+        attributes: { category: "Software", vendor: "Acme" },
+      },
+    });
+
+    await generate({
+      entities: [entity],
+      framework: "nextjs",
+      output: tmpDir,
+      force: true,
+    });
+
+    const content = await readFile(path.join(tmpDir, "payroll-software-pricing", "page.tsx"), "utf8");
+    // Should contain fallback content from attributes
+    expect(content).toContain("Key Details");
+    expect(content).toContain("category");
+    expect(content).toContain("Software");
+    // Should contain tags section
+    expect(content).toContain("Related Topics");
+    expect(content).toContain("crm");
+    // Should still contain TODO sections appended after fallback
+    expect(content).toContain("TODO:");
+  });
+
+  it("generates description-based intro in fallback", async () => {
+    const entity = makeEntity({
+      metadata: {
+        title: "CRM Tool",
+        description: "This is a comprehensive CRM tool overview.",
+        tags: [],
+      },
+    });
+
+    await generate({
+      entities: [entity],
+      framework: "astro",
+      output: tmpDir,
+      force: true,
+    });
+
+    const content = await readFile(path.join(tmpDir, "payroll-software-pricing.astro"), "utf8");
+    expect(content).toContain("comprehensive CRM tool overview");
+  });
+
+  it("generates fallback across all frameworks", async () => {
+    const entity = makeEntity({
+      metadata: {
+        title: "Test Tool",
+        description: "Test description.",
+        tags: ["test"],
+        attributes: { type: "SaaS" },
+      },
+    });
+
+    for (const framework of ["nextjs", "astro", "nuxt", "sveltekit", "remix"] as Framework[]) {
+      const dir = await mkdtemp(path.join(os.tmpdir(), `sophon-fb-${framework}-`));
+      try {
+        await generate({
+          entities: [entity],
+          framework,
+          output: dir,
+          force: true,
+        });
+        // Just verify it generates without error
+        const entries = await readdir(dir, { recursive: true });
+        expect(entries.length).toBeGreaterThan(0);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    }
+  });
+});
+
+// ── ogImage hydration tests ────────────────────────────────
+
+describe("buildHydrationMap ogImage", () => {
+  it("includes __ENTITY_OG_IMAGE__ placeholder", () => {
+    const entity = makeEntity();
+    const map = buildHydrationMap(entity);
+    expect(map).toHaveProperty("__ENTITY_OG_IMAGE__");
+  });
+
+  it("uses ogImage from entity metadata", () => {
+    const entity = makeEntity({
+      metadata: {
+        title: "Test",
+        ogImage: "https://example.com/og.png",
+      },
+    });
+    const map = buildHydrationMap(entity);
+    expect(map["__ENTITY_OG_IMAGE__"]).toContain("https://example.com/og.png");
+  });
+
+  it("returns empty string when ogImage is not set", () => {
+    const entity = makeEntity();
+    const map = buildHydrationMap(entity);
+    expect(map["__ENTITY_OG_IMAGE__"]).toBe('""');
+  });
+});

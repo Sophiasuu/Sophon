@@ -11,6 +11,9 @@ export type EntityRecord = {
     description?: string;
     tags?: string[];
     attributes?: Record<string, string>;
+    ogImage?: string;
+    generatedAt?: string;
+    enrichedAt?: string;
   };
 };
 
@@ -79,6 +82,7 @@ export type TechnicalOptions = {
   site: string;
   output?: string;
   force?: boolean;
+  maxLinks?: number;
 };
 
 export type EnrichOptions = {
@@ -87,6 +91,8 @@ export type EnrichOptions = {
   output?: string;
   concurrency?: number;
   force?: boolean;
+  dryRun?: boolean;
+  maxRetries?: number;
 };
 
 export type GenerateSummary = {

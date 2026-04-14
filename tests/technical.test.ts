@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSitemap, buildRobots, buildSchema, buildInternalLinks, buildHreflang, buildFaqSchema } from "../src/core/technical";
+import { buildSitemap, buildSitemapIndex, buildRobots, buildSchema, buildBreadcrumbSchema, buildInternalLinks, buildHreflang, buildFaqSchema } from "../src/core/technical";
 import type { EntityRecord, EnrichedFaq } from "../src/types";
 
 function makeEntity(name: string, slug: string, tags: string[] = []): EntityRecord {
@@ -144,5 +144,166 @@ describe("buildFaqSchema", () => {
     expect(faq.mainEntity[0].name).toBe("What is CRM Pricing?");
     expect(faq.mainEntity[0].acceptedAnswer["@type"]).toBe("Answer");
     expect(faq.mainEntity[0].acceptedAnswer.text).toContain("subscription tiers");
+  });
+});
+
+// ── Sitemap index tests ────────────────────────────────────
+
+describe("buildSitemapIndex", () => {
+  it("returns null when entity count is below threshold", () => {
+    const result = buildSitemapIndex("https://example.com", entities);
+    expect(result).toBeNull();
+  });
+
+  it("generates index and child sitemaps for large entity sets", () => {
+    // Create 50,000 entities to exceed the 45K threshold
+    const manyEntities: EntityRecord[] = [];
+    for (let i = 0; i < 50000; i++) {
+      manyEntities.push(makeEntity(`Entity ${i}`, `entity-${i}`));
+    }
+
+    const result = buildSitemapIndex("https://example.com", manyEntities);
+    expect(result).not.toBeNull();
+    expect(result!.sitemaps.length).toBe(2); // 45K + 5K = 2 chunks
+    expect(result!.index).toContain("<sitemapindex");
+    expect(result!.index).toContain("</sitemapindex>");
+    expect(result!.index).toContain("sitemap-1.xml");
+    expect(result!.index).toContain("sitemap-2.xml");
+  });
+
+  it("each child sitemap is valid XML", () => {
+    const manyEntities: EntityRecord[] = [];
+    for (let i = 0; i < 50000; i++) {
+      manyEntities.push(makeEntity(`Entity ${i}`, `entity-${i}`));
+    }
+
+    const result = buildSitemapIndex("https://example.com", manyEntities)!;
+    for (const sm of result.sitemaps) {
+      expect(sm.content).toContain('<?xml version="1.0"');
+      expect(sm.content).toContain("<urlset");
+      expect(sm.content).toContain("</urlset>");
+    }
+  });
+
+  it("first child sitemap has 45000 URLs", () => {
+    const manyEntities: EntityRecord[] = [];
+    for (let i = 0; i < 50000; i++) {
+      manyEntities.push(makeEntity(`Entity ${i}`, `entity-${i}`));
+    }
+
+    const result = buildSitemapIndex("https://example.com", manyEntities)!;
+    const urlCount = (result.sitemaps[0].content.match(/<url>/g) ?? []).length;
+    expect(urlCount).toBe(45000);
+  });
+});
+
+// ── Breadcrumb schema tests ────────────────────────────────
+
+describe("buildBreadcrumbSchema", () => {
+  it("generates one breadcrumb per entity", () => {
+    const breadcrumbs = buildBreadcrumbSchema("https://example.com", entities);
+    expect(breadcrumbs).toHaveLength(3);
+  });
+
+  it("has schema.org BreadcrumbList type", () => {
+    const breadcrumbs = buildBreadcrumbSchema("https://example.com", entities);
+    expect(breadcrumbs[0]["@context"]).toBe("https://schema.org");
+    expect(breadcrumbs[0]["@type"]).toBe("BreadcrumbList");
+  });
+
+  it("includes Home as first breadcrumb item", () => {
+    const breadcrumbs = buildBreadcrumbSchema("https://example.com", entities);
+    const items = breadcrumbs[0].itemListElement;
+    expect(items[0].position).toBe(1);
+    expect(items[0].name).toBe("Home");
+    expect(items[0].item).toBe("https://example.com");
+  });
+
+  it("includes entity as second breadcrumb item", () => {
+    const breadcrumbs = buildBreadcrumbSchema("https://example.com", entities);
+    const items = breadcrumbs[0].itemListElement;
+    expect(items[1].position).toBe(2);
+    expect(items[1].name).toBe("CRM Pricing — Overview");
+    expect(items[1].item).toBe("https://example.com/crm-pricing");
+  });
+});
+
+// ── AggregateRating in schema tests ────────────────────────
+
+describe("buildSchema with AggregateRating", () => {
+  it("does not include aggregateRating without rating data", () => {
+    const schema = buildSchema("https://example.com", entities);
+    expect(schema[0]).not.toHaveProperty("aggregateRating");
+  });
+
+  it("includes aggregateRating when ratingValue and ratingCount exist", () => {
+    const ratedEntity = makeEntity("Rated CRM", "rated-crm");
+    ratedEntity.metadata.attributes = { ratingValue: "4.5", ratingCount: "120", bestRating: "5" };
+
+    const schema = buildSchema("https://example.com", [ratedEntity]);
+    expect(schema[0].aggregateRating).toBeDefined();
+    expect(schema[0].aggregateRating!["@type"]).toBe("AggregateRating");
+    expect(schema[0].aggregateRating!.ratingValue).toBe("4.5");
+    expect(schema[0].aggregateRating!.ratingCount).toBe("120");
+    expect(schema[0].aggregateRating!.bestRating).toBe("5");
+  });
+
+  it("defaults bestRating to 5 when not provided", () => {
+    const ratedEntity = makeEntity("Rated CRM", "rated-crm");
+    ratedEntity.metadata.attributes = { ratingValue: "4.2", ratingCount: "50" };
+
+    const schema = buildSchema("https://example.com", [ratedEntity]);
+    expect(schema[0].aggregateRating!.bestRating).toBe("5");
+  });
+});
+
+// ── Configurable maxLinks tests ────────────────────────────
+
+describe("buildInternalLinks with maxLinks", () => {
+  it("respects custom maxLinks limit", () => {
+    const manyEntities = Array.from({ length: 10 }, (_, i) =>
+      makeEntity(`CRM Tool ${i}`, `crm-tool-${i}`, ["crm"]),
+    );
+    const links = buildInternalLinks(manyEntities, 2);
+    for (const link of links) {
+      expect(link.relatedEntities.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("defaults to 5 links when maxLinks not specified", () => {
+    const manyEntities = Array.from({ length: 10 }, (_, i) =>
+      makeEntity(`CRM Tool ${i}`, `crm-tool-${i}`, ["crm"]),
+    );
+    const links = buildInternalLinks(manyEntities);
+    for (const link of links) {
+      expect(link.relatedEntities.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("allows maxLinks of 1", () => {
+    const links = buildInternalLinks(entities, 1);
+    for (const link of links) {
+      expect(link.relatedEntities.length).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ── Sitemap freshness tests ────────────────────────────────
+
+describe("buildSitemap with entity timestamps", () => {
+  it("uses enrichedAt for lastmod when available", () => {
+    const entityWithTimestamp = makeEntity("Timed Entity", "timed-entity");
+    entityWithTimestamp.metadata.enrichedAt = "2024-06-15";
+
+    const sitemap = buildSitemap("https://example.com", [entityWithTimestamp]);
+    expect(sitemap).toContain("<lastmod>2024-06-15</lastmod>");
+  });
+
+  it("uses generatedAt fallback when enrichedAt is missing", () => {
+    const entityWithTimestamp = makeEntity("Gen Entity", "gen-entity");
+    entityWithTimestamp.metadata.generatedAt = "2024-05-01";
+
+    const sitemap = buildSitemap("https://example.com", [entityWithTimestamp]);
+    expect(sitemap).toContain("<lastmod>2024-05-01</lastmod>");
   });
 });

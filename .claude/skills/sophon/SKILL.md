@@ -96,6 +96,9 @@ type EntityRecord = {
     description?: string;
     tags?: string[];       // used for internal linking scores
     attributes: Record<string, string>; // CSV columns or enrichment data
+    ogImage?: string;      // OG image URL for social cards and hero images
+    generatedAt?: string;  // ISO timestamp set during discovery for freshness tracking
+    enrichedAt?: string;   // ISO timestamp set during enrichment, used for sitemap lastmod
   };
 };
 ```
@@ -123,12 +126,12 @@ Sophon breaks its workflow into composable skills. Each step corresponds to a CL
 | Skill | CLI | Purpose |
 |-------|-----|---------|
 | `discover` | `sophon discover` | Find entities from seed or CSV |
-| `generate` | `sophon generate` | Generate framework pages with JSON-LD schema |
-| `technical` | `sophon technical` | Sitemap, robots, schema, FAQ schema, internal links |
-| `enrich` | `sophon enrich` | AI-powered content enrichment (concurrent, cached) |
+| `generate` | `sophon generate` | Generate framework pages with JSON-LD schema and fallback content |
+| `technical` | `sophon technical` | Sitemap (with index), robots, schema (BreadcrumbList, AggregateRating), FAQ schema, configurable internal links |
+| `enrich` | `sophon enrich` | AI-powered content enrichment (concurrent, cached, retry, dry-run) |
 | `optimize` | `sophon optimize` | GSC-powered performance analysis and recommendations |
 | `blog` | `sophon blog` | Generate supporting blog outlines per entity |
-| `keywords` | `sophon keywords` | Keyword difficulty and opportunity analysis |
+| `keywords` | `sophon keywords` | Keyword difficulty and opportunity analysis with CSV data import |
 | `quality` | `sophon quality` | Content quality scoring (readability, structure) |
 | `humanize` | `sophon humanize` | Remove AI-isms and mechanical patterns from text |
 | `run` | `sophon run` | Full pipeline |

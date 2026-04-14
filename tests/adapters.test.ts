@@ -191,3 +191,64 @@ describe("sveltekit page module", () => {
     expect(template).toContain("entity");
   });
 });
+
+// ── Image SEO (ogImage) tests ──────────────────────────────
+
+describe("ogImage support across adapters", () => {
+  it("nextjs adapter includes ogImage placeholder and conditional image", () => {
+    const template = nextjs(makeOptions());
+    expect(template).toContain("__ENTITY_OG_IMAGE__");
+    expect(template).toContain("ogImage");
+  });
+
+  it("astro adapter includes og:image and twitter:image meta tags", () => {
+    const template = astro({ ...makeOptions(), framework: "astro" });
+    expect(template).toContain("og:image");
+    expect(template).toContain("twitter:image");
+    expect(template).toContain("ogImage");
+  });
+
+  it("nuxt adapter includes og:image meta and conditional img", () => {
+    const template = nuxt({ ...makeOptions(), framework: "nuxt" });
+    expect(template).toContain("og:image");
+    expect(template).toContain("twitter:image");
+    expect(template).toContain("ogImage");
+    expect(template).toContain("v-if");
+  });
+
+  it("remix adapter includes og:image and twitter:image in meta export", () => {
+    const template = remix({ ...makeOptions(), framework: "remix" });
+    expect(template).toContain("og:image");
+    expect(template).toContain("twitter:image");
+    expect(template).toContain("ogImage");
+  });
+
+  it("sveltekit adapter includes og:image with conditional rendering", () => {
+    const template = sveltekit({ ...makeOptions(), framework: "sveltekit" });
+    expect(template).toContain("og:image");
+    expect(template).toContain("twitter:image");
+    expect(template).toContain("ogImage");
+  });
+
+  it("sveltekit page module includes ogImage placeholder", () => {
+    const template = buildSvelteKitPageModule();
+    expect(template).toContain("__ENTITY_OG_IMAGE__");
+    expect(template).toContain("ogImage");
+  });
+
+  it("all adapters include lazy loading on hero images", () => {
+    const templates = {
+      nextjs: nextjs(makeOptions()),
+      astro: astro({ ...makeOptions(), framework: "astro" }),
+      nuxt: nuxt({ ...makeOptions(), framework: "nuxt" }),
+      remix: remix({ ...makeOptions(), framework: "remix" }),
+    };
+
+    for (const [name, template] of Object.entries(templates)) {
+      // Each adapter that includes img should have loading="lazy"
+      if (template.includes("<img")) {
+        expect(template).toContain("loading");
+      }
+    }
+  });
+});

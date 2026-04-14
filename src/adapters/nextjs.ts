@@ -15,6 +15,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -32,11 +33,13 @@ export const metadata: Metadata = {
     description: entity.description,
     url: siteUrl + "/" + entity.slug,
     type: "website",
+    ...(entity.ogImage ? { images: [{ url: entity.ogImage, alt: entity.title }] } : {}),
   },
   twitter: {
     card: "summary_large_image",
     title: entity.title,
     description: entity.description,
+    ...(entity.ogImage ? { images: [entity.ogImage] } : {}),
   },
 };
 
@@ -52,6 +55,16 @@ export default function SophonPage() {
       <header className="space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">{entity.title}</h1>
         <p className="max-w-3xl text-base leading-7 text-neutral-700">{entity.description}</p>
+        {entity.ogImage && (
+          <img
+            src={entity.ogImage}
+            alt={entity.title}
+            loading="lazy"
+            width={1200}
+            height={630}
+            className="w-full rounded-2xl"
+          />
+        )}
       </header>
 
 __ENTITY_YMYL_DISCLAIMER__

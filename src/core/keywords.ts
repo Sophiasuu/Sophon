@@ -1,11 +1,14 @@
 /**
- * Keyword data integration — basic keyword scoring and volume estimation.
- * Uses heuristic signals (word count, modifier presence, competition indicators)
- * since we don't depend on paid keyword APIs.
+ * Keyword data integration — keyword scoring and volume estimation.
+ * Supports heuristic estimation when no real data is available,
+ * or importing real keyword data from CSV (e.g. Ahrefs, SEMrush, Google Keyword Planner exports).
  */
+
+import { readFile } from "node:fs/promises";
 
 import type { EntityRecord, ProposedEntityIntent } from "../types";
 import { classifyIntent } from "./intent";
+import { slugify } from "./utils";
 
 export type KeywordDifficulty = "easy" | "medium" | "hard";
 
@@ -17,7 +20,87 @@ export type KeywordData = {
   intent: ProposedEntityIntent;
   cpcEstimate: string;
   opportunityScore: number;
+  dataSource: "heuristic" | "imported";
 };
+
+export type KeywordImportRow = {
+  keyword: string;
+  volume?: number;
+  difficulty?: number;
+  cpc?: number;
+};
+
+// ── CSV keyword data import ────────────────────────────────
+
+function parseCsvLine(line: string): string[] {
+  const columns: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  columns.push(current.trim());
+  return columns;
+}
+
+function detectColumnIndex(headers: string[], aliases: string[]): number {
+  const lower = headers.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  for (const alias of aliases) {
+    const idx = lower.indexOf(alias.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+export async function importKeywordData(csvPath: string): Promise<Map<string, KeywordImportRow>> {
+  const raw = await readFile(csvPath, "utf8");
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return new Map();
+
+  const headers = parseCsvLine(lines[0]);
+  const kwIdx = detectColumnIndex(headers, ["keyword", "query", "search term", "term", "keyphrase"]);
+  const volIdx = detectColumnIndex(headers, ["volume", "search volume", "avg monthly searches", "monthly volume"]);
+  const diffIdx = detectColumnIndex(headers, ["difficulty", "kd", "keyword difficulty", "competition"]);
+  const cpcIdx = detectColumnIndex(headers, ["cpc", "cost per click", "avg cpc"]);
+
+  if (kwIdx === -1) return new Map();
+
+  const result = new Map<string, KeywordImportRow>();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const keyword = cols[kwIdx]?.trim();
+    if (!keyword) continue;
+
+    result.set(slugify(keyword), {
+      keyword,
+      volume: volIdx !== -1 ? Number.parseInt(cols[volIdx], 10) || undefined : undefined,
+      difficulty: diffIdx !== -1 ? Number.parseFloat(cols[diffIdx]) || undefined : undefined,
+      cpc: cpcIdx !== -1 ? Number.parseFloat(cols[cpcIdx].replace(/[$€£]/g, "")) || undefined : undefined,
+    });
+  }
+
+  return result;
+}
 
 // ── Volume estimation heuristics ───────────────────────────
 
@@ -85,10 +168,37 @@ function calculateOpportunity(volume: number, difficulty: KeywordDifficulty, int
   return Math.min(100, Math.max(0, compositeScore));
 }
 
+// ── Difficulty from numeric score ───────────────────────────
+
+function difficultyFromScore(score: number): KeywordDifficulty {
+  if (score <= 30) return "easy";
+  if (score <= 60) return "medium";
+  return "hard";
+}
+
 // ── Public API ─────────────────────────────────────────────
 
-export function analyzeKeyword(entity: EntityRecord): KeywordData {
+export function analyzeKeyword(entity: EntityRecord, imported?: Map<string, KeywordImportRow>): KeywordData {
   const { intent } = classifyIntent(entity.name);
+  const row = imported?.get(entity.slug);
+
+  if (row) {
+    const volume = row.volume ?? estimateVolume(entity.name);
+    const difficulty = row.difficulty !== undefined ? difficultyFromScore(row.difficulty) : estimateDifficulty(entity.name);
+    const cpc = row.cpc !== undefined ? `$${row.cpc.toFixed(2)}` : estimateCpc(intent);
+
+    return {
+      keyword: entity.name,
+      slug: entity.slug,
+      estimatedMonthlyVolume: volume,
+      difficulty,
+      intent,
+      cpcEstimate: cpc,
+      opportunityScore: calculateOpportunity(volume, difficulty, intent),
+      dataSource: "imported",
+    };
+  }
+
   const volume = estimateVolume(entity.name);
   const difficulty = estimateDifficulty(entity.name);
 
@@ -100,11 +210,12 @@ export function analyzeKeyword(entity: EntityRecord): KeywordData {
     intent,
     cpcEstimate: estimateCpc(intent),
     opportunityScore: calculateOpportunity(volume, difficulty, intent),
+    dataSource: "heuristic",
   };
 }
 
-export function analyzeKeywords(entities: EntityRecord[]): KeywordData[] {
+export function analyzeKeywords(entities: EntityRecord[], imported?: Map<string, KeywordImportRow>): KeywordData[] {
   return entities
-    .map(analyzeKeyword)
+    .map((e) => analyzeKeyword(e, imported))
     .sort((a, b) => b.opportunityScore - a.opportunityScore);
 }

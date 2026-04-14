@@ -57,12 +57,14 @@ Each generated page includes:
 **SEO metadata (auto-populated per entity)**
 - `<title>` and `<meta name="description">`
 - Canonical URL (`<link rel="canonical">` or `alternates.canonical`)
-- Open Graph tags: `og:title`, `og:description`, `og:url`, `og:type`
-- Twitter Card tags: `twitter:card`, `twitter:title`, `twitter:description`
+- Open Graph tags: `og:title`, `og:description`, `og:url`, `og:type`, `og:image` (when `ogImage` is set)
+- Twitter Card tags: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image` (when `ogImage` is set)
+- Conditional hero image with lazy loading when `ogImage` is available
 
 **Page structure**
 - H1 populated from entity SEO title
-- H2 sections scaffolded for intro, FAQ, and comparison — all as `// TODO` blocks
+- **Fallback content from metadata** — when no enriched content exists, generates structured sections from entity description, attributes table, and tags list instead of empty TODO stubs
+- H2 sections scaffolded for intro, FAQ, and comparison — enriched content replaces TODO blocks
 - Entity tags and attributes rendered for reference
 
 **Safety guardrails**

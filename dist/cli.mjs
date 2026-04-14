@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-
-// src/cli.ts
-import { readFile as readFile6 } from "fs/promises";
-import path10 from "path";
-import { createInterface as createInterface2 } from "readline/promises";
-import { stdin as input2, stdout as output2 } from "process";
-import { parseArgs } from "util";
-
-// src/core/discover.ts
-import { readFile } from "fs/promises";
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
 // src/core/utils.ts
 import path from "path";
@@ -40,196 +39,11 @@ function assertSafePath(filePath) {
     throw new Error(`Output path must be within the project directory: ${filePath}`);
   }
 }
-
-// src/core/discover.ts
-var DEFAULT_PATTERNS = [
-  "{seed} for startups",
-  "{seed} for small business",
-  "{seed} for enterprises",
-  "{seed} pricing",
-  "{seed} alternatives",
-  "best {seed}",
-  "{seed} comparison"
-];
-function resolvePatterns(patterns) {
-  return patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
-}
-function buildEntityId(name) {
-  return stableHash(slugify(name));
-}
-var TITLE_TEMPLATES = [
-  { pattern: /\bpricing\b/i, template: "{name}: Plans, Costs & What to Expect" },
-  { pattern: /\balternatives\b/i, template: "Top {name} Worth Trying in {year}" },
-  { pattern: /\bcomparison\b|\bvs\b/i, template: "{name}: Features, Pros & Cons" },
-  { pattern: /\bbest\b/i, template: "{name}: Reviewed and Ranked ({year})" },
-  { pattern: /\bfor\s/i, template: "{name}: Complete Guide ({year})" },
-  { pattern: /\bhow to\b/i, template: "{name} - Step by Step" },
-  { pattern: /\bguide\b|\bchecklist\b/i, template: "{name} ({year} Edition)" }
-];
-var GENERIC_TITLES = [
-  "{name}: What You Need to Know ({year})",
-  "{name} - A Practical Overview ({year})",
-  "{name}: Guide and Key Insights ({year})"
-];
-function titleCase(text) {
-  const minorWords = /* @__PURE__ */ new Set(["a", "an", "the", "and", "but", "or", "for", "in", "on", "at", "to", "of", "by", "is"]);
-  return text.split(/\s+/).map((word, index) => {
-    if (index === 0 || !minorWords.has(word.toLowerCase())) {
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    }
-    return word.toLowerCase();
-  }).join(" ");
-}
-function buildTitle(name, _source, titleTemplate) {
-  if (titleTemplate) {
-    return titleTemplate.replaceAll("{name}", titleCase(name));
+var init_utils = __esm({
+  "src/core/utils.ts"() {
+    "use strict";
   }
-  const year = (/* @__PURE__ */ new Date()).getFullYear().toString();
-  const matched = TITLE_TEMPLATES.find((t) => t.pattern.test(name));
-  const template = matched?.template ?? GENERIC_TITLES[name.length % GENERIC_TITLES.length];
-  let title = template.replaceAll("{name}", titleCase(name)).replaceAll("{year}", year);
-  if (title.length > 65) {
-    title = title.slice(0, 60).replace(/\s+\S*$/, "...");
-  }
-  return title;
-}
-function buildDescription(name, _source, seedKeyword) {
-  const keyword = seedKeyword ? ` ${seedKeyword}` : "";
-  const descriptions = [
-    `Compare ${name} options and find the right${keyword} fit for your needs. Features, pricing, and honest reviews.`,
-    `Everything you need to know about ${name}. Unbiased breakdown of features, use cases, and top picks for${keyword}.`,
-    `Looking for the best ${name}? We cover key differences, real pros and cons, and practical recommendations.`
-  ];
-  let desc = descriptions[name.length % descriptions.length];
-  if (desc.length > 160) {
-    desc = desc.slice(0, 155).replace(/\s+\S*$/, "...");
-  }
-  return desc;
-}
-function toEntity(name, source, options = {}) {
-  const cleanName = name.trim();
-  return {
-    id: buildEntityId(cleanName),
-    name: cleanName,
-    slug: slugify(cleanName),
-    source,
-    seedKeyword: options.seedKeyword,
-    metadata: {
-      title: buildTitle(cleanName, source, options.titleTemplate),
-      description: buildDescription(cleanName, source, options.seedKeyword),
-      tags: options.seedKeyword ? [options.seedKeyword] : [],
-      attributes: options.attributes
-    }
-  };
-}
-function dedupeEntities(entities) {
-  const seen = /* @__PURE__ */ new Set();
-  return entities.filter((entity) => {
-    if (seen.has(entity.slug)) {
-      return false;
-    }
-    seen.add(entity.slug);
-    return true;
-  });
-}
-function parseCsvRow(line) {
-  const columns = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (i + 1 < line.length && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        current += char;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ",") {
-      columns.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  columns.push(current.trim());
-  return columns.filter(Boolean);
-}
-function isHeaderRow(columns) {
-  return columns.some((column) => /name|entity|keyword/i.test(column));
-}
-function buildAttributes(headers, columns) {
-  const attributes = columns.slice(1).reduce((result, value, index) => {
-    const key = headers[index + 1] ?? `column_${index + 2}`;
-    result[key] = value;
-    return result;
-  }, {});
-  return Object.keys(attributes).length > 0 ? attributes : void 0;
-}
-async function discoverFromCsv(csvPath, titleTemplate) {
-  const raw = await readFile(csvPath, "utf8");
-  const rows = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (rows.length === 0) {
-    return [];
-  }
-  const firstRowColumns = parseCsvRow(rows[0]);
-  const hasHeader = isHeaderRow(firstRowColumns);
-  const headers = hasHeader ? firstRowColumns.map((column, index) => slugify(column).replace(/-/g, "_") || `column_${index + 1}`) : firstRowColumns.map((_column, index) => `column_${index + 1}`);
-  const dataRows = hasHeader ? rows.slice(1) : rows;
-  const entities = dataRows.flatMap((line) => {
-    const columns = parseCsvRow(line);
-    const name = columns[0];
-    if (!name) {
-      return [];
-    }
-    return [
-      toEntity(name, "csv", {
-        titleTemplate,
-        attributes: buildAttributes(headers, columns)
-      })
-    ];
-  });
-  return dedupeEntities(entities);
-}
-function discoverFromSeed(seedKeyword, patternTemplates, titleTemplate) {
-  const normalizedSeed = seedKeyword.trim();
-  const placeholderEntities = patternTemplates.map((template) => template.replaceAll("{seed}", normalizedSeed));
-  return dedupeEntities(
-    placeholderEntities.map(
-      (value) => toEntity(value, "seed", {
-        seedKeyword: normalizedSeed,
-        titleTemplate
-      })
-    )
-  );
-}
-async function discover(options) {
-  if (!options.csv && !options.seed) {
-    throw new Error("Provide either a csv path or a seed keyword.");
-  }
-  const entities = options.csv ? await discoverFromCsv(options.csv, options.titleTemplate) : discoverFromSeed(options.seed, resolvePatterns(options.patterns), options.titleTemplate);
-  return {
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    mode: options.csv ? "csv" : "seed",
-    entityCount: entities.length,
-    entities
-  };
-}
-
-// src/core/enrich.ts
-import { readFile as readFile3 } from "fs/promises";
-import path3 from "path";
-import Anthropic from "@anthropic-ai/sdk";
-
-// src/core/generate.ts
-import { mkdir, readFile as readFile2, writeFile } from "fs/promises";
-import path2 from "path";
+});
 
 // src/adapters/astro.ts
 function astro(_options) {
@@ -246,6 +60,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 };
 
 const siteUrl = __SITE_URL__;
@@ -264,10 +79,13 @@ const jsonLd = __ENTITY_SCHEMA_JSONLD__;
     <meta property="og:description" content={entity.description} />
     <meta property="og:url" content={\`\${siteUrl}/\${entity.slug}\`} />
     <meta property="og:type" content="website" />
+    {entity.ogImage && <meta property="og:image" content={entity.ogImage} />}
+    {entity.ogImage && <meta property="og:image:alt" content={entity.title} />}
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={entity.title} />
     <meta name="twitter:description" content={entity.description} />
+    {entity.ogImage && <meta name="twitter:image" content={entity.ogImage} />}
     <!-- JSON-LD Schema -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
@@ -275,6 +93,7 @@ const jsonLd = __ENTITY_SCHEMA_JSONLD__;
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
+      {entity.ogImage && <img src={entity.ogImage} alt={entity.title} loading="lazy" width="1200" height="630" />}
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
     </main>
@@ -282,6 +101,11 @@ __ENTITY_SECTIONS__
 </html>
 `;
 }
+var init_astro = __esm({
+  "src/adapters/astro.ts"() {
+    "use strict";
+  }
+});
 
 // src/adapters/nextjs.ts
 function nextjs(_options) {
@@ -299,6 +123,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -316,11 +141,13 @@ export const metadata: Metadata = {
     description: entity.description,
     url: siteUrl + "/" + entity.slug,
     type: "website",
+    ...(entity.ogImage ? { images: [{ url: entity.ogImage, alt: entity.title }] } : {}),
   },
   twitter: {
     card: "summary_large_image",
     title: entity.title,
     description: entity.description,
+    ...(entity.ogImage ? { images: [entity.ogImage] } : {}),
   },
 };
 
@@ -336,6 +163,16 @@ export default function SophonPage() {
       <header className="space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">{entity.title}</h1>
         <p className="max-w-3xl text-base leading-7 text-neutral-700">{entity.description}</p>
+        {entity.ogImage && (
+          <img
+            src={entity.ogImage}
+            alt={entity.title}
+            loading="lazy"
+            width={1200}
+            height={630}
+            className="w-full rounded-2xl"
+          />
+        )}
       </header>
 
 __ENTITY_YMYL_DISCLAIMER__
@@ -349,6 +186,11 @@ __ENTITY_SECTIONS__
 }
 `;
 }
+var init_nextjs = __esm({
+  "src/adapters/nextjs.ts"() {
+    "use strict";
+  }
+});
 
 // src/adapters/nuxt.ts
 function nuxt(_options) {
@@ -365,6 +207,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -382,9 +225,11 @@ useHead({
     { property: "og:description", content: entity.description },
     { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
+    ...(entity.ogImage ? [{ property: "og:image", content: entity.ogImage }, { property: "og:image:alt", content: entity.title }] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
     { name: "twitter:description", content: entity.description },
+    ...(entity.ogImage ? [{ name: "twitter:image", content: entity.ogImage }] : []),
   ],
   link: [{ rel: "canonical", href: siteUrl + "/" + entity.slug }],
   script: [{ type: "application/ld+json", innerHTML: JSON.stringify(jsonLd) }],
@@ -395,12 +240,18 @@ useHead({
   <main>
     <h1>{{ entity.title }}</h1>
     <p>{{ entity.description }}</p>
+    <img v-if="entity.ogImage" :src="entity.ogImage" :alt="entity.title" loading="lazy" width="1200" height="630" />
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
   </main>
 </template>
 `;
 }
+var init_nuxt = __esm({
+  "src/adapters/nuxt.ts"() {
+    "use strict";
+  }
+});
 
 // src/adapters/remix.ts
 function remix(_options) {
@@ -418,6 +269,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -432,9 +284,11 @@ export const meta: MetaFunction = () => {
     { property: "og:description", content: entity.description },
     { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
+    ...(entity.ogImage ? [{ property: "og:image", content: entity.ogImage }, { property: "og:image:alt", content: entity.title }] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
     { name: "twitter:description", content: entity.description },
+    ...(entity.ogImage ? [{ name: "twitter:image", content: entity.ogImage }] : []),
   ];
 };
 
@@ -447,6 +301,9 @@ export default function SophonPage() {
       />
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
+      {entity.ogImage && (
+        <img src={entity.ogImage} alt={entity.title} loading="lazy" width={1200} height={630} />
+      )}
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
     </main>
@@ -454,6 +311,11 @@ __ENTITY_SECTIONS__
 }
 `;
 }
+var init_remix = __esm({
+  "src/adapters/remix.ts"() {
+    "use strict";
+  }
+});
 
 // src/adapters/sveltekit-page.ts
 function buildSvelteKitPageModule() {
@@ -466,6 +328,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 export function load() {
@@ -475,6 +338,11 @@ export function load() {
 }
 `;
 }
+var init_sveltekit_page = __esm({
+  "src/adapters/sveltekit-page.ts"() {
+    "use strict";
+  }
+});
 
 // src/adapters/sveltekit.ts
 function sveltekit(_options) {
@@ -492,6 +360,7 @@ function sveltekit(_options) {
       description: string;
       tags: string[];
       attributes: Record<string, string>;
+      ogImage: string;
     };
     siteUrl: string;
     jsonLd: Record<string, unknown>;
@@ -507,10 +376,17 @@ function sveltekit(_options) {
   <meta property="og:description" content={data.entity.description} />
   <meta property="og:url" content={\`\${data.siteUrl}/\${data.entity.slug}\`} />
   <meta property="og:type" content="website" />
+  {#if data.entity.ogImage}
+  <meta property="og:image" content={data.entity.ogImage} />
+  <meta property="og:image:alt" content={data.entity.title} />
+  {/if}
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={data.entity.title} />
   <meta name="twitter:description" content={data.entity.description} />
+  {#if data.entity.ogImage}
+  <meta name="twitter:image" content={data.entity.ogImage} />
+  {/if}
   <!-- JSON-LD Schema -->
   {@html \`<script type="application/ld+json">\${JSON.stringify(data.jsonLd)}</script>\`}
 </svelte:head>
@@ -518,58 +394,22 @@ function sveltekit(_options) {
 <main>
   <h1>{data.entity.title}</h1>
   <p>{data.entity.description}</p>
+  {#if data.entity.ogImage}
+  <img src={data.entity.ogImage} alt={data.entity.title} loading="lazy" width="1200" height="630" />
+  {/if}
 
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
 </main>
 `;
 }
+var init_sveltekit = __esm({
+  "src/adapters/sveltekit.ts"() {
+    "use strict";
+  }
+});
 
 // src/core/intent.ts
-var INTENT_RULES = [
-  {
-    intent: "commercial",
-    pattern: /pricing|cost|price|plans|quote|buy|purchase|deals?|coupon|discount|free trial/i,
-    priority: 92,
-    confidence: 0.9,
-    reason: "Strong buying-intent modifier detected."
-  },
-  {
-    intent: "comparison",
-    pattern: /alternatives|comparison|vs\b|compare|versus|better than|switch(?:ing)?\s+from|replace|competitor/i,
-    priority: 88,
-    confidence: 0.86,
-    reason: "Evaluation-intent modifier detected."
-  },
-  {
-    intent: "segmented",
-    pattern: /for (?:startups|small business|enterprises|agencies|ecommerce|teams|freelancers|developers|designers|nonprofits|education|healthcare|real estate|saas|b2b|b2c|beginners|remote teams|solopreneurs)/i,
-    priority: 80,
-    confidence: 0.82,
-    reason: "Audience-segment modifier detected."
-  },
-  {
-    intent: "commercial",
-    pattern: /\b(?:best|top\s+\d+|top)\b/i,
-    priority: 85,
-    confidence: 0.83,
-    reason: "Listicle/ranking modifier detected; strong commercial intent."
-  },
-  {
-    intent: "informational",
-    pattern: /what is|how to|guide|checklist|template|tutorial|examples|definition|overview|explained|101|introduction|FAQ|learn/i,
-    priority: 70,
-    confidence: 0.75,
-    reason: "Top-of-funnel informational modifier detected."
-  },
-  {
-    intent: "informational",
-    pattern: /\breview(?:s|ed)?\b|\brating\b|\bopinion\b/i,
-    priority: 72,
-    confidence: 0.72,
-    reason: "Review/opinion modifier detected; informational with commercial lean."
-  }
-];
 function classifyIntent(name) {
   for (const rule of INTENT_RULES) {
     if (rule.pattern.test(name)) {
@@ -590,38 +430,58 @@ function classifyIntent(name) {
     action: "review"
   };
 }
+var INTENT_RULES;
+var init_intent = __esm({
+  "src/core/intent.ts"() {
+    "use strict";
+    INTENT_RULES = [
+      {
+        intent: "commercial",
+        pattern: /pricing|cost|price|plans|quote|buy|purchase|deals?|coupon|discount|free trial/i,
+        priority: 92,
+        confidence: 0.9,
+        reason: "Strong buying-intent modifier detected."
+      },
+      {
+        intent: "comparison",
+        pattern: /alternatives|comparison|vs\b|compare|versus|better than|switch(?:ing)?\s+from|replace|competitor/i,
+        priority: 88,
+        confidence: 0.86,
+        reason: "Evaluation-intent modifier detected."
+      },
+      {
+        intent: "segmented",
+        pattern: /for (?:startups|small business|enterprises|agencies|ecommerce|teams|freelancers|developers|designers|nonprofits|education|healthcare|real estate|saas|b2b|b2c|beginners|remote teams|solopreneurs)/i,
+        priority: 80,
+        confidence: 0.82,
+        reason: "Audience-segment modifier detected."
+      },
+      {
+        intent: "commercial",
+        pattern: /\b(?:best|top\s+\d+|top)\b/i,
+        priority: 85,
+        confidence: 0.83,
+        reason: "Listicle/ranking modifier detected; strong commercial intent."
+      },
+      {
+        intent: "informational",
+        pattern: /what is|how to|guide|checklist|template|tutorial|examples|definition|overview|explained|101|introduction|FAQ|learn/i,
+        priority: 70,
+        confidence: 0.75,
+        reason: "Top-of-funnel informational modifier detected."
+      },
+      {
+        intent: "informational",
+        pattern: /\breview(?:s|ed)?\b|\brating\b|\bopinion\b/i,
+        priority: 72,
+        confidence: 0.72,
+        reason: "Review/opinion modifier detected; informational with commercial lean."
+      }
+    ];
+  }
+});
 
 // src/core/sections.ts
-var COMMERCIAL_SECTIONS = [
-  { heading: "Pricing Overview", placeholder: "Add verified pricing tiers, plans, and costs. Do not invent prices." },
-  { heading: "Key Features", placeholder: "List core features with factual descriptions. Link to official sources." },
-  { heading: "Who Is This For?", placeholder: "Describe the ideal customer profile and primary use cases." },
-  { heading: "Get Started", placeholder: "Add a clear call-to-action: free trial, demo request, or signup link." }
-];
-var COMPARISON_SECTIONS = [
-  { heading: "Side-by-Side Comparison", placeholder: "Build a factual comparison table. Only include verified differences." },
-  { heading: "Pros & Cons", placeholder: "List evidence-based advantages and disadvantages for each option." },
-  { heading: "Best For", placeholder: "Recommend which option suits which audience or use case." },
-  { heading: "Verdict", placeholder: "Provide an objective summary. Do not make unsupported claims." }
-];
-var SEGMENTED_SECTIONS = [
-  { heading: "Pain Points", placeholder: "Describe the specific challenges this audience faces." },
-  { heading: "Tailored Use Cases", placeholder: "Show how the solution addresses this segment's specific needs." },
-  { heading: "Success Stories", placeholder: "Add real case studies or testimonials. Do not fabricate quotes." },
-  { heading: "Next Steps", placeholder: "Provide a segment-specific call-to-action." }
-];
-var INFORMATIONAL_SECTIONS = [
-  { heading: "What You Need to Know", placeholder: "Write a comprehensive introduction to the topic." },
-  { heading: "Step-by-Step Guide", placeholder: "Break down the process into clear, actionable steps." },
-  { heading: "Frequently Asked Questions", placeholder: "Add sourced FAQ content. Validate all answers." },
-  { heading: "Related Resources", placeholder: "Link to authoritative external and internal resources." }
-];
-var SECTIONS_BY_INTENT = {
-  commercial: COMMERCIAL_SECTIONS,
-  comparison: COMPARISON_SECTIONS,
-  segmented: SEGMENTED_SECTIONS,
-  informational: INFORMATIONAL_SECTIONS
-};
 function getSections(intent) {
   return SECTIONS_BY_INTENT[intent];
 }
@@ -657,27 +517,119 @@ function renderSections(framework, sections) {
       return renderWithIndent(sections, 4, "\n", false);
   }
 }
+var COMMERCIAL_SECTIONS, COMPARISON_SECTIONS, SEGMENTED_SECTIONS, INFORMATIONAL_SECTIONS, SECTIONS_BY_INTENT;
+var init_sections = __esm({
+  "src/core/sections.ts"() {
+    "use strict";
+    COMMERCIAL_SECTIONS = [
+      { heading: "Pricing Overview", placeholder: "Add verified pricing tiers, plans, and costs. Do not invent prices." },
+      { heading: "Key Features", placeholder: "List core features with factual descriptions. Link to official sources." },
+      { heading: "Who Is This For?", placeholder: "Describe the ideal customer profile and primary use cases." },
+      { heading: "Get Started", placeholder: "Add a clear call-to-action: free trial, demo request, or signup link." }
+    ];
+    COMPARISON_SECTIONS = [
+      { heading: "Side-by-Side Comparison", placeholder: "Build a factual comparison table. Only include verified differences." },
+      { heading: "Pros & Cons", placeholder: "List evidence-based advantages and disadvantages for each option." },
+      { heading: "Best For", placeholder: "Recommend which option suits which audience or use case." },
+      { heading: "Verdict", placeholder: "Provide an objective summary. Do not make unsupported claims." }
+    ];
+    SEGMENTED_SECTIONS = [
+      { heading: "Pain Points", placeholder: "Describe the specific challenges this audience faces." },
+      { heading: "Tailored Use Cases", placeholder: "Show how the solution addresses this segment's specific needs." },
+      { heading: "Success Stories", placeholder: "Add real case studies or testimonials. Do not fabricate quotes." },
+      { heading: "Next Steps", placeholder: "Provide a segment-specific call-to-action." }
+    ];
+    INFORMATIONAL_SECTIONS = [
+      { heading: "What You Need to Know", placeholder: "Write a comprehensive introduction to the topic." },
+      { heading: "Step-by-Step Guide", placeholder: "Break down the process into clear, actionable steps." },
+      { heading: "Frequently Asked Questions", placeholder: "Add sourced FAQ content. Validate all answers." },
+      { heading: "Related Resources", placeholder: "Link to authoritative external and internal resources." }
+    ];
+    SECTIONS_BY_INTENT = {
+      commercial: COMMERCIAL_SECTIONS,
+      comparison: COMPARISON_SECTIONS,
+      segmented: SEGMENTED_SECTIONS,
+      informational: INFORMATIONAL_SECTIONS
+    };
+  }
+});
 
 // src/core/generate.ts
-var DEFAULT_SITE_URL = "https://example.com";
-var YMYL_TERMS = [
-  "health",
-  "medical",
-  "legal",
-  "law",
-  "financial",
-  "investment",
-  "tax",
-  "insurance",
-  "medication",
-  "therapy",
-  "mental health"
-];
-var TODO_SECTIONS_PER_PAGE = 4;
+import { mkdir, readFile as readFile2, writeFile } from "fs/promises";
+import path2 from "path";
 function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-var YMYL_DISCLAIMER_TEXT = "This content is for informational purposes only and does not constitute professional advice. Consult a qualified professional before making any decisions based on this information.";
+function buildFallbackContent(entity, framework) {
+  const useTailwind = framework === "nextjs";
+  const indentMap = {
+    nextjs: { indent: 10, gap: "\n\n" },
+    sveltekit: { indent: 2, gap: "\n\n" },
+    remix: { indent: 6, gap: "\n" },
+    astro: { indent: 6, gap: "\n" },
+    nuxt: { indent: 4, gap: "\n" }
+  };
+  const { indent, gap } = indentMap[framework];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const parts = [];
+  const desc = entity.metadata.description ?? `Learn more about ${entity.name}.`;
+  parts.push(
+    useTailwind ? `${pad}<section className="space-y-3">
+${inner}<p className="text-base leading-7 text-neutral-700">${escapeHtml(desc)}</p>
+${pad}</section>` : `${pad}<section>
+${inner}<p>${escapeHtml(desc)}</p>
+${pad}</section>`
+  );
+  const attrs = entity.metadata.attributes ?? {};
+  const attrKeys = Object.keys(attrs);
+  if (attrKeys.length > 0) {
+    const rows = attrKeys.map(
+      (key) => useTailwind ? `${inner}  <tr>
+${inner}    <td className="pr-4 font-medium text-neutral-950">${escapeHtml(key)}</td>
+${inner}    <td className="text-neutral-700">${escapeHtml(attrs[key])}</td>
+${inner}  </tr>` : `${inner}  <tr>
+${inner}    <td>${escapeHtml(key)}</td>
+${inner}    <td>${escapeHtml(attrs[key])}</td>
+${inner}  </tr>`
+    ).join("\n");
+    parts.push(
+      useTailwind ? `${pad}<section className="space-y-3 rounded-3xl bg-amber-50 p-6">
+${inner}<h2 className="text-xl font-medium text-neutral-950">Key Details</h2>
+${inner}<table className="w-full">
+${inner}  <tbody>
+${rows}
+${inner}  </tbody>
+${inner}</table>
+${pad}</section>` : `${pad}<section>
+${inner}<h2>Key Details</h2>
+${inner}<table>
+${inner}  <tbody>
+${rows}
+${inner}  </tbody>
+${inner}</table>
+${pad}</section>`
+    );
+  }
+  const tags = entity.metadata.tags ?? [];
+  if (tags.length > 0) {
+    const tagList = tags.map((t) => `${inner}  <li>${escapeHtml(t)}</li>`).join("\n");
+    parts.push(
+      useTailwind ? `${pad}<section className="space-y-3">
+${inner}<h2 className="text-xl font-medium text-neutral-950">Related Topics</h2>
+${inner}<ul className="list-disc pl-6 text-neutral-700">
+${tagList}
+${inner}</ul>
+${pad}</section>` : `${pad}<section>
+${inner}<h2>Related Topics</h2>
+${inner}<ul>
+${tagList}
+${inner}</ul>
+${pad}</section>`
+    );
+  }
+  return parts.join(gap);
+}
 function renderYmylDisclaimer(framework, entity) {
   if (!isYmylEntity(entity)) return "";
   const indentMap = {
@@ -772,50 +724,6 @@ ${pad}</section>`
   }
   return parts.join(gap);
 }
-var COMMENT_BLOCKS = {
-  nextjs: [
-    "// SOPHON GENERATED",
-    "// Do not invent statistics, prices, comparisons, or factual claims",
-    "// All TODO sections must be filled with grounded sourced content",
-    "// Review YMYL warnings before publishing",
-    ""
-  ].join("\n"),
-  remix: [
-    "// SOPHON GENERATED",
-    "// Do not invent statistics, prices, comparisons, or factual claims",
-    "// All TODO sections must be filled with grounded sourced content",
-    "// Review YMYL warnings before publishing",
-    ""
-  ].join("\n"),
-  astro: [
-    "<!-- SOPHON GENERATED -->",
-    "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
-    "<!-- All TODO sections must be filled with grounded sourced content -->",
-    "<!-- Review YMYL warnings before publishing -->",
-    ""
-  ].join("\n"),
-  nuxt: [
-    "<!-- SOPHON GENERATED -->",
-    "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
-    "<!-- All TODO sections must be filled with grounded sourced content -->",
-    "<!-- Review YMYL warnings before publishing -->",
-    ""
-  ].join("\n"),
-  sveltekit: [
-    "<!-- SOPHON GENERATED -->",
-    "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
-    "<!-- All TODO sections must be filled with grounded sourced content -->",
-    "<!-- Review YMYL warnings before publishing -->",
-    ""
-  ].join("\n")
-};
-var ADAPTERS = {
-  nextjs,
-  astro,
-  nuxt,
-  sveltekit,
-  remix
-};
 function defaultOutputRoot(framework) {
   switch (framework) {
     case "nextjs":
@@ -860,6 +768,7 @@ function buildHydrationMap(entity, siteUrl, enriched) {
     "__ENTITY_DESCRIPTION__": safeJsonStringify(description),
     "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
     "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
+    "__ENTITY_OG_IMAGE__": safeJsonStringify(entity.metadata.ogImage ?? ""),
     "__SITE_URL__": safeJsonStringify(resolvedSiteUrl),
     "__ENTITY_SCHEMA_JSONLD__": JSON.stringify(schemaJsonLd, null, 2)
   };
@@ -870,7 +779,9 @@ function hydrateTemplate(template, entity, framework, siteUrl, enriched) {
   if (enriched?.content) {
     sectionsHtml = renderEnrichedContent(framework, enriched.content);
   } else {
-    sectionsHtml = renderSections(framework, getSections(intent));
+    const fallback = buildFallbackContent(entity, framework);
+    const todoSections = renderSections(framework, getSections(intent));
+    sectionsHtml = fallback + "\n\n" + todoSections;
   }
   const replacements = {
     ...buildHydrationMap(entity, siteUrl, enriched),
@@ -994,6 +905,413 @@ async function generate(options) {
   console.log(`TODOs remaining: ${summary.todos}`);
   return summary;
 }
+var DEFAULT_SITE_URL, YMYL_TERMS, TODO_SECTIONS_PER_PAGE, YMYL_DISCLAIMER_TEXT, COMMENT_BLOCKS, ADAPTERS;
+var init_generate = __esm({
+  "src/core/generate.ts"() {
+    "use strict";
+    init_astro();
+    init_nextjs();
+    init_nuxt();
+    init_remix();
+    init_sveltekit_page();
+    init_sveltekit();
+    init_intent();
+    init_sections();
+    init_utils();
+    DEFAULT_SITE_URL = "https://example.com";
+    YMYL_TERMS = [
+      "health",
+      "medical",
+      "legal",
+      "law",
+      "financial",
+      "investment",
+      "tax",
+      "insurance",
+      "medication",
+      "therapy",
+      "mental health"
+    ];
+    TODO_SECTIONS_PER_PAGE = 4;
+    YMYL_DISCLAIMER_TEXT = "This content is for informational purposes only and does not constitute professional advice. Consult a qualified professional before making any decisions based on this information.";
+    COMMENT_BLOCKS = {
+      nextjs: [
+        "// SOPHON GENERATED",
+        "// Do not invent statistics, prices, comparisons, or factual claims",
+        "// All TODO sections must be filled with grounded sourced content",
+        "// Review YMYL warnings before publishing",
+        ""
+      ].join("\n"),
+      remix: [
+        "// SOPHON GENERATED",
+        "// Do not invent statistics, prices, comparisons, or factual claims",
+        "// All TODO sections must be filled with grounded sourced content",
+        "// Review YMYL warnings before publishing",
+        ""
+      ].join("\n"),
+      astro: [
+        "<!-- SOPHON GENERATED -->",
+        "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
+        "<!-- All TODO sections must be filled with grounded sourced content -->",
+        "<!-- Review YMYL warnings before publishing -->",
+        ""
+      ].join("\n"),
+      nuxt: [
+        "<!-- SOPHON GENERATED -->",
+        "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
+        "<!-- All TODO sections must be filled with grounded sourced content -->",
+        "<!-- Review YMYL warnings before publishing -->",
+        ""
+      ].join("\n"),
+      sveltekit: [
+        "<!-- SOPHON GENERATED -->",
+        "<!-- Do not invent statistics, prices, comparisons, or factual claims -->",
+        "<!-- All TODO sections must be filled with grounded sourced content -->",
+        "<!-- Review YMYL warnings before publishing -->",
+        ""
+      ].join("\n")
+    };
+    ADAPTERS = {
+      nextjs,
+      astro,
+      nuxt,
+      sveltekit,
+      remix
+    };
+  }
+});
+
+// src/core/diff.ts
+var diff_exports = {};
+__export(diff_exports, {
+  diffGenerate: () => diffGenerate
+});
+import { readdir as readdir2, readFile as readFile7 } from "fs/promises";
+import path10 from "path";
+function defaultOutputRoot2(framework) {
+  switch (framework) {
+    case "nextjs":
+      return "app";
+    case "astro":
+      return path10.join("src", "pages");
+    case "nuxt":
+      return "pages";
+    case "sveltekit":
+      return path10.join("src", "routes");
+    case "remix":
+      return path10.join("app", "routes");
+  }
+}
+function buildMainPagePath2(framework, outputRoot, slug) {
+  switch (framework) {
+    case "nextjs":
+      return path10.join(outputRoot, slug, "page.tsx");
+    case "astro":
+      return path10.join(outputRoot, `${slug}.astro`);
+    case "nuxt":
+      return path10.join(outputRoot, `${slug}.vue`);
+    case "sveltekit":
+      return path10.join(outputRoot, slug, "+page.svelte");
+    case "remix":
+      return path10.join(outputRoot, `${slug}.tsx`);
+  }
+}
+function isManagedBySophon2(content) {
+  return content.includes("SOPHON GENERATED") || content.includes("Sophon generated");
+}
+async function diffGenerate(options) {
+  const outputRoot = options.output ?? defaultOutputRoot2(options.framework);
+  const changes = [];
+  const entitySlugs = new Set(options.entities.map((e) => e.slug));
+  for (const entity of options.entities) {
+    const pagePath = buildMainPagePath2(options.framework, outputRoot, entity.slug);
+    let existingContent = null;
+    try {
+      existingContent = await readFile7(pagePath, "utf8");
+    } catch {
+    }
+    if (!existingContent) {
+      changes.push({ type: "new", path: pagePath, slug: entity.slug });
+      continue;
+    }
+    if (!isManagedBySophon2(existingContent)) {
+      changes.push({ type: "unchanged", path: pagePath, slug: entity.slug });
+      continue;
+    }
+    const enriched = await loadEnrichedContent(entity.slug);
+    const template = ADAPTERS2[options.framework]({
+      entities: [entity],
+      framework: options.framework,
+      site: options.site
+    });
+    const normalizeForCompare = (s) => s.replace(/\s+/g, " ").trim();
+    if (normalizeForCompare(existingContent) !== normalizeForCompare(template)) {
+      changes.push({ type: "updated", path: pagePath, slug: entity.slug });
+    } else {
+      changes.push({ type: "unchanged", path: pagePath, slug: entity.slug });
+    }
+  }
+  try {
+    const existingFiles = await scanExistingPages(outputRoot, options.framework);
+    for (const { slug, filePath } of existingFiles) {
+      if (!entitySlugs.has(slug)) {
+        try {
+          const content = await readFile7(filePath, "utf8");
+          if (isManagedBySophon2(content)) {
+            changes.push({ type: "removed", path: filePath, slug });
+          }
+        } catch {
+        }
+      }
+    }
+  } catch {
+  }
+  return {
+    newPages: changes.filter((c) => c.type === "new").length,
+    updatedPages: changes.filter((c) => c.type === "updated").length,
+    unchangedPages: changes.filter((c) => c.type === "unchanged").length,
+    removedPages: changes.filter((c) => c.type === "removed").length,
+    changes
+  };
+}
+async function scanExistingPages(outputRoot, framework) {
+  const results = [];
+  try {
+    const entries = await readdir2(outputRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path10.join(outputRoot, entry.name);
+      if (entry.isDirectory()) {
+        if (framework === "nextjs") {
+          results.push({ slug: entry.name, filePath: path10.join(fullPath, "page.tsx") });
+        } else if (framework === "sveltekit") {
+          results.push({ slug: entry.name, filePath: path10.join(fullPath, "+page.svelte") });
+        }
+      } else {
+        const ext = path10.extname(entry.name);
+        const slug = path10.basename(entry.name, ext);
+        results.push({ slug, filePath: fullPath });
+      }
+    }
+  } catch {
+  }
+  return results;
+}
+var ADAPTERS2;
+var init_diff = __esm({
+  "src/core/diff.ts"() {
+    "use strict";
+    init_astro();
+    init_nextjs();
+    init_nuxt();
+    init_remix();
+    init_sveltekit();
+    init_generate();
+    ADAPTERS2 = {
+      nextjs,
+      astro,
+      nuxt,
+      sveltekit,
+      remix
+    };
+  }
+});
+
+// src/cli.ts
+import { readFile as readFile8 } from "fs/promises";
+import path11 from "path";
+import { createInterface as createInterface2 } from "readline/promises";
+import { stdin as input2, stdout as output2 } from "process";
+import { parseArgs } from "util";
+
+// src/core/discover.ts
+init_utils();
+import { readFile } from "fs/promises";
+var DEFAULT_PATTERNS = [
+  "{seed} for startups",
+  "{seed} for small business",
+  "{seed} for enterprises",
+  "{seed} pricing",
+  "{seed} alternatives",
+  "best {seed}",
+  "{seed} comparison"
+];
+function resolvePatterns(patterns) {
+  return patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS;
+}
+function buildEntityId(name) {
+  return stableHash(slugify(name));
+}
+var TITLE_TEMPLATES = [
+  { pattern: /\bpricing\b/i, template: "{name}: Plans, Costs & What to Expect" },
+  { pattern: /\balternatives\b/i, template: "Top {name} Worth Trying in {year}" },
+  { pattern: /\bcomparison\b|\bvs\b/i, template: "{name}: Features, Pros & Cons" },
+  { pattern: /\bbest\b/i, template: "{name}: Reviewed and Ranked ({year})" },
+  { pattern: /\bfor\s/i, template: "{name}: Complete Guide ({year})" },
+  { pattern: /\bhow to\b/i, template: "{name} - Step by Step" },
+  { pattern: /\bguide\b|\bchecklist\b/i, template: "{name} ({year} Edition)" }
+];
+var GENERIC_TITLES = [
+  "{name}: What You Need to Know ({year})",
+  "{name} - A Practical Overview ({year})",
+  "{name}: Guide and Key Insights ({year})"
+];
+function titleCase(text) {
+  const minorWords = /* @__PURE__ */ new Set(["a", "an", "the", "and", "but", "or", "for", "in", "on", "at", "to", "of", "by", "is"]);
+  return text.split(/\s+/).map((word, index) => {
+    if (index === 0 || !minorWords.has(word.toLowerCase())) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word.toLowerCase();
+  }).join(" ");
+}
+function buildTitle(name, _source, titleTemplate) {
+  if (titleTemplate) {
+    return titleTemplate.replaceAll("{name}", titleCase(name));
+  }
+  const year = (/* @__PURE__ */ new Date()).getFullYear().toString();
+  const matched = TITLE_TEMPLATES.find((t) => t.pattern.test(name));
+  const template = matched?.template ?? GENERIC_TITLES[name.length % GENERIC_TITLES.length];
+  let title = template.replaceAll("{name}", titleCase(name)).replaceAll("{year}", year);
+  if (title.length > 65) {
+    title = title.slice(0, 60).replace(/\s+\S*$/, "...");
+  }
+  return title;
+}
+function buildDescription(name, _source, seedKeyword) {
+  const keyword = seedKeyword ? ` ${seedKeyword}` : "";
+  const descriptions = [
+    `Compare ${name} options and find the right${keyword} fit for your needs. Features, pricing, and honest reviews.`,
+    `Everything you need to know about ${name}. Unbiased breakdown of features, use cases, and top picks for${keyword}.`,
+    `Looking for the best ${name}? We cover key differences, real pros and cons, and practical recommendations.`
+  ];
+  let desc = descriptions[name.length % descriptions.length];
+  if (desc.length > 160) {
+    desc = desc.slice(0, 155).replace(/\s+\S*$/, "...");
+  }
+  return desc;
+}
+function toEntity(name, source, options = {}) {
+  const cleanName = name.trim();
+  return {
+    id: buildEntityId(cleanName),
+    name: cleanName,
+    slug: slugify(cleanName),
+    source,
+    seedKeyword: options.seedKeyword,
+    metadata: {
+      title: buildTitle(cleanName, source, options.titleTemplate),
+      description: buildDescription(cleanName, source, options.seedKeyword),
+      tags: options.seedKeyword ? [options.seedKeyword] : [],
+      attributes: options.attributes,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  };
+}
+function dedupeEntities(entities) {
+  const seen = /* @__PURE__ */ new Set();
+  return entities.filter((entity) => {
+    if (seen.has(entity.slug)) {
+      return false;
+    }
+    seen.add(entity.slug);
+    return true;
+  });
+}
+function parseCsvRow(line) {
+  const columns = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  columns.push(current.trim());
+  return columns.filter(Boolean);
+}
+function isHeaderRow(columns) {
+  return columns.some((column) => /name|entity|keyword/i.test(column));
+}
+function buildAttributes(headers, columns) {
+  const attributes = columns.slice(1).reduce((result, value, index) => {
+    const key = headers[index + 1] ?? `column_${index + 2}`;
+    result[key] = value;
+    return result;
+  }, {});
+  return Object.keys(attributes).length > 0 ? attributes : void 0;
+}
+async function discoverFromCsv(csvPath, titleTemplate) {
+  const raw = await readFile(csvPath, "utf8");
+  const rows = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (rows.length === 0) {
+    return [];
+  }
+  const firstRowColumns = parseCsvRow(rows[0]);
+  const hasHeader = isHeaderRow(firstRowColumns);
+  const headers = hasHeader ? firstRowColumns.map((column, index) => slugify(column).replace(/-/g, "_") || `column_${index + 1}`) : firstRowColumns.map((_column, index) => `column_${index + 1}`);
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const entities = dataRows.flatMap((line) => {
+    const columns = parseCsvRow(line);
+    const name = columns[0];
+    if (!name) {
+      return [];
+    }
+    return [
+      toEntity(name, "csv", {
+        titleTemplate,
+        attributes: buildAttributes(headers, columns)
+      })
+    ];
+  });
+  return dedupeEntities(entities);
+}
+function discoverFromSeed(seedKeyword, patternTemplates, titleTemplate) {
+  const normalizedSeed = seedKeyword.trim();
+  const placeholderEntities = patternTemplates.map((template) => template.replaceAll("{seed}", normalizedSeed));
+  return dedupeEntities(
+    placeholderEntities.map(
+      (value) => toEntity(value, "seed", {
+        seedKeyword: normalizedSeed,
+        titleTemplate
+      })
+    )
+  );
+}
+async function discover(options) {
+  if (!options.csv && !options.seed) {
+    throw new Error("Provide either a csv path or a seed keyword.");
+  }
+  const entities = options.csv ? await discoverFromCsv(options.csv, options.titleTemplate) : discoverFromSeed(options.seed, resolvePatterns(options.patterns), options.titleTemplate);
+  return {
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    mode: options.csv ? "csv" : "seed",
+    entityCount: entities.length,
+    entities
+  };
+}
+
+// src/core/enrich.ts
+init_generate();
+import { readFile as readFile3 } from "fs/promises";
+import path3 from "path";
+import Anthropic from "@anthropic-ai/sdk";
 
 // src/core/humanize.ts
 var EM_DASH_RE = /\s*[—–]\s*/g;
@@ -1093,6 +1411,8 @@ function humanizeContent(obj) {
 // src/core/enrich.ts
 var MODEL = "claude-sonnet-4-20250514";
 var DEFAULT_CONCURRENCY = 3;
+var DEFAULT_MAX_RETRIES = 3;
+var RETRY_BASE_DELAY_MS = 1e3;
 var SYSTEM_PROMPT = `You are a programmatic SEO content generator.
 Generate structured page content for the provided entity.
 
@@ -1134,12 +1454,12 @@ function buildUserPrompt(entity) {
 }
 async function enrich(options) {
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is required for enrichment.");
+  if (!apiKey && !options.dryRun) {
+    throw new Error("ANTHROPIC_API_KEY is required for enrichment. Use --dry-run to preview prompts without calling the API.");
   }
   const outputRoot = options.output ?? path3.join("data", "enriched");
-  const client = new Anthropic({ apiKey });
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   const toEnrich = [];
   for (const entity of options.entities) {
     const outputPath = path3.join(outputRoot, entity.slug, "content.json");
@@ -1157,10 +1477,23 @@ async function enrich(options) {
     console.log("All entities already enriched. Use --force to re-enrich.");
     return;
   }
+  if (options.dryRun) {
+    console.log(`Dry run: ${toEnrich.length} entities would be enriched
+`);
+    for (const entity of toEnrich) {
+      console.log(`--- ${entity.slug} ---`);
+      console.log(`System prompt: (${SYSTEM_PROMPT.length} chars)`);
+      console.log(`User prompt:
+${buildUserPrompt(entity)}
+`);
+    }
+    return;
+  }
+  const client = new Anthropic({ apiKey });
   console.log(`Enriching ${toEnrich.length} entities (${options.entities.length - toEnrich.length} cached, concurrency: ${concurrency})...`);
   let completed = 0;
   let failed = 0;
-  async function enrichOne(entity) {
+  async function enrichWithRetry(entity, attempt) {
     try {
       const response = await client.messages.create({
         model: MODEL,
@@ -1176,6 +1509,7 @@ async function enrich(options) {
       });
       const raw = JSON.parse(messageText(response));
       const humanized = humanizeContent(raw);
+      humanized.enrichedAt = (/* @__PURE__ */ new Date()).toISOString();
       await writeGeneratedFile(
         path3.join(outputRoot, entity.slug, "content.json"),
         `${JSON.stringify(humanized, null, 2)}
@@ -1185,13 +1519,20 @@ async function enrich(options) {
       completed++;
       console.log(`  \u2713 ${entity.slug} (${completed}/${toEnrich.length})`);
     } catch (error) {
+      const isRetryable = error instanceof Error && /429|rate.limit|overloaded|500|502|503|529/i.test(error.message);
+      if (isRetryable && attempt < maxRetries) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`  \u27F3 ${entity.slug}: retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return enrichWithRetry(entity, attempt + 1);
+      }
       failed++;
       console.error(`  \u2717 ${entity.slug}:`, error instanceof Error ? error.message : error);
     }
   }
   const pool = [];
   for (const entity of toEnrich) {
-    const promise = enrichOne(entity);
+    const promise = enrichWithRetry(entity, 0);
     pool.push(promise);
     if (pool.length >= concurrency) {
       await Promise.race(pool);
@@ -1205,7 +1546,12 @@ async function enrich(options) {
   console.log(`Enrichment complete: ${completed} succeeded, ${failed} failed`);
 }
 
+// src/cli.ts
+init_generate();
+
 // src/core/technical.ts
+init_generate();
+init_intent();
 import path4 from "path";
 function todayDate() {
   return (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -1229,12 +1575,13 @@ function sitemapChangefreq(entity) {
   const { intent } = classifyIntent(entity.name);
   return intent === "commercial" || intent === "comparison" ? "weekly" : "monthly";
 }
+var SITEMAP_MAX_URLS = 45e3;
 function buildSitemap(siteUrl, entities) {
   const lastmod = todayDate();
   const urls = entities.map(
     (entity) => `  <url>
     <loc>${siteUrl}/${entity.slug}</loc>
-    <lastmod>${lastmod}</lastmod>
+    <lastmod>${entity.metadata.enrichedAt ?? entity.metadata.generatedAt ?? lastmod}</lastmod>
     <changefreq>${sitemapChangefreq(entity)}</changefreq>
     <priority>${sitemapPriority(entity)}</priority>
   </url>`
@@ -1246,6 +1593,32 @@ function buildSitemap(siteUrl, entities) {
     "</urlset>",
     ""
   ].join("\n");
+}
+function buildSitemapIndex(siteUrl, entities) {
+  if (entities.length <= SITEMAP_MAX_URLS) return null;
+  const chunks = [];
+  for (let i = 0; i < entities.length; i += SITEMAP_MAX_URLS) {
+    chunks.push(entities.slice(i, i + SITEMAP_MAX_URLS));
+  }
+  const lastmod = todayDate();
+  const sitemaps = chunks.map((chunk, i) => ({
+    name: `sitemap-${i + 1}.xml`,
+    content: buildSitemap(siteUrl, chunk)
+  }));
+  const indexEntries = sitemaps.map(
+    (sm) => `  <sitemap>
+    <loc>${siteUrl}/${sm.name}</loc>
+    <lastmod>${lastmod}</lastmod>
+  </sitemap>`
+  ).join("\n");
+  const index = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    indexEntries,
+    "</sitemapindex>",
+    ""
+  ].join("\n");
+  return { index, sitemaps };
 }
 function buildRobots(siteUrl) {
   return [
@@ -1271,12 +1644,44 @@ function inferSchemaType(entity) {
   return "WebPage";
 }
 function buildSchema(siteUrl, entities) {
+  return entities.map((entity) => {
+    const record = {
+      "@context": "https://schema.org",
+      "@type": inferSchemaType(entity),
+      name: entity.metadata.title ?? entity.name,
+      description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
+      url: `${siteUrl}/${entity.slug}`
+    };
+    const attrs = entity.metadata.attributes ?? {};
+    if (attrs.ratingValue && attrs.ratingCount) {
+      record.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: attrs.ratingValue,
+        bestRating: attrs.bestRating ?? "5",
+        ratingCount: attrs.ratingCount
+      };
+    }
+    return record;
+  });
+}
+function buildBreadcrumbSchema(siteUrl, entities) {
   return entities.map((entity) => ({
     "@context": "https://schema.org",
-    "@type": inferSchemaType(entity),
-    name: entity.metadata.title ?? entity.name,
-    description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
-    url: `${siteUrl}/${entity.slug}`
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: entity.metadata.title ?? entity.name,
+        item: `${siteUrl}/${entity.slug}`
+      }
+    ]
   }));
 }
 function countSharedTags(left, right) {
@@ -1341,13 +1746,15 @@ function buildHreflang(siteUrl, entities) {
   ].join("\n");
   return lines;
 }
-function buildInternalLinks(entities) {
+var DEFAULT_MAX_LINKS = 5;
+function buildInternalLinks(entities, maxLinks) {
+  const limit = maxLinks ?? DEFAULT_MAX_LINKS;
   return entities.map((entity) => ({
     entity: entity.slug,
     relatedEntities: entities.filter((candidate) => candidate.slug !== entity.slug).map((candidate) => {
       const { score, reason } = relatedScore(entity, candidate);
       return { slug: candidate.slug, score, reason };
-    }).filter((candidate) => candidate.score > 0).sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug)).slice(0, 5).map((candidate) => ({ slug: candidate.slug, reason: candidate.reason }))
+    }).filter((candidate) => candidate.score > 0).sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug)).slice(0, limit).map((candidate) => ({ slug: candidate.slug, reason: candidate.reason }))
   }));
 }
 function buildFaqSchema(entity, enrichedFaqs) {
@@ -1371,10 +1778,12 @@ async function technical(options) {
   const outputRoot = options.output ?? "public";
   const siteUrl = options.site.replace(/\/$/, "");
   const technicalRoot = path4.join(outputRoot, "sophon");
-  const sitemap = buildSitemap(siteUrl, options.entities);
+  const sitemapIndexResult = buildSitemapIndex(siteUrl, options.entities);
+  const sitemap = sitemapIndexResult ? null : buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
-  const internalLinks = buildInternalLinks(options.entities);
+  const breadcrumbs = buildBreadcrumbSchema(siteUrl, options.entities);
+  const internalLinks = buildInternalLinks(options.entities, options.maxLinks);
   const hreflang = buildHreflang(siteUrl, options.entities);
   const faqSchemas = [];
   for (const entity of options.entities) {
@@ -1384,10 +1793,23 @@ async function technical(options) {
       faqSchemas.push({ slug: entity.slug, faq });
     }
   }
+  const sitemapWrites = [];
+  if (sitemapIndexResult) {
+    sitemapWrites.push(
+      writeGeneratedFile(path4.join(outputRoot, "sitemap.xml"), sitemapIndexResult.index, { force: options.force })
+    );
+    for (const sm of sitemapIndexResult.sitemaps) {
+      sitemapWrites.push(
+        writeGeneratedFile(path4.join(outputRoot, sm.name), sm.content, { force: options.force })
+      );
+    }
+  } else {
+    sitemapWrites.push(
+      writeGeneratedFile(path4.join(outputRoot, "sitemap.xml"), sitemap, { force: options.force })
+    );
+  }
   await Promise.all([
-    writeGeneratedFile(path4.join(outputRoot, "sitemap.xml"), sitemap, {
-      force: options.force
-    }),
+    ...sitemapWrites,
     writeGeneratedFile(path4.join(outputRoot, "robots.txt"), robots, {
       force: options.force
     }),
@@ -1395,6 +1817,12 @@ async function technical(options) {
 `, {
       force: options.force
     }),
+    writeGeneratedFile(
+      path4.join(technicalRoot, "breadcrumbs.json"),
+      `${JSON.stringify(breadcrumbs, null, 2)}
+`,
+      { force: options.force }
+    ),
     writeGeneratedFile(
       path4.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}
@@ -1413,14 +1841,20 @@ async function technical(options) {
       { force: options.force }
     ) : Promise.resolve()
   ]);
-  console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  if (sitemapIndexResult) {
+    console.log(`sitemap-index.xml -> ${sitemapIndexResult.sitemaps.length} sitemaps (${options.entities.length} URLs)`);
+  } else {
+    console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  }
   console.log(`schema.json -> ${schema.length} records`);
+  console.log(`breadcrumbs.json -> ${breadcrumbs.length} records`);
   console.log(`faq-schema.json -> ${faqSchemas.length} FAQ pages`);
   console.log(`internal-links.json -> ${internalLinks.length} nodes`);
   console.log(`hreflang.txt -> ${options.entities.length} entity scaffolds`);
 }
 
 // src/core/audit.ts
+init_utils();
 import { access, readdir, readFile as readFile4 } from "fs/promises";
 import path5 from "path";
 var IGNORED_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".next", ".svelte-kit", ".nuxt"]);
@@ -1466,9 +1900,119 @@ async function hasPattern(files, pattern) {
   }
   return false;
 }
+async function validateJsonLdSchema(files) {
+  const requiredFields = ["@context", "@type", "name"];
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|astro|vue|svelte|html|json)$/i.test(file)) continue;
+    try {
+      const content = await readFile4(file, "utf8");
+      const matches = content.match(/"@context"\s*:\s*"https:\/\/schema\.org"/g);
+      if (matches) {
+        const hasType = /"@type"\s*:/.test(content);
+        const hasName = /"name"\s*:/.test(content);
+        if (!hasType || !hasName) {
+          return { valid: false, details: `JSON-LD in ${path5.basename(file)} missing required fields (need: ${requiredFields.join(", ")})` };
+        }
+        return { valid: true, details: "JSON-LD schema has required fields" };
+      }
+    } catch {
+    }
+  }
+  return { valid: false, details: "No JSON-LD schema found" };
+}
+async function checkDuplicateMeta(files) {
+  const titles = /* @__PURE__ */ new Map();
+  const descriptions = /* @__PURE__ */ new Map();
+  const duplicates = [];
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|mjs|cjs|astro|vue|svelte)$/i.test(file)) continue;
+    try {
+      const content = await readFile4(file, "utf8");
+      const titleMatch = content.match(/title:\s*["'`]([^"'`]+)["'`]/);
+      const descMatch = content.match(/description:\s*["'`]([^"'`]+)["'`]/);
+      if (titleMatch?.[1]) {
+        const title = titleMatch[1];
+        if (titles.has(title)) {
+          duplicates.push(`Duplicate title "${title.slice(0, 40)}..." in ${path5.basename(file)} and ${titles.get(title)}`);
+        }
+        titles.set(title, path5.basename(file));
+      }
+      if (descMatch?.[1]) {
+        const desc = descMatch[1];
+        if (descriptions.has(desc)) {
+          duplicates.push(`Duplicate description in ${path5.basename(file)} and ${descriptions.get(desc)}`);
+        }
+        descriptions.set(desc, path5.basename(file));
+      }
+    } catch {
+    }
+  }
+  return {
+    unique: duplicates.length === 0,
+    details: duplicates.length > 0 ? duplicates.slice(0, 3).join("; ") : "No duplicate titles or descriptions detected"
+  };
+}
+async function checkHeadingHierarchy(files) {
+  let checked = 0;
+  let violations = 0;
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|astro|vue|svelte|html)$/i.test(file)) continue;
+    try {
+      const content = await readFile4(file, "utf8");
+      const headings = [...content.matchAll(/<h([1-6])[\s>]/gi)].map((m) => Number.parseInt(m[1], 10));
+      if (headings.length === 0) continue;
+      checked++;
+      if (!headings.includes(1)) {
+        violations++;
+        continue;
+      }
+      for (let i = 1; i < headings.length; i++) {
+        if (headings[i] > headings[i - 1] + 1) {
+          violations++;
+          break;
+        }
+      }
+    } catch {
+    }
+  }
+  if (checked === 0) return { valid: true, details: "No heading hierarchy to check" };
+  return {
+    valid: violations === 0,
+    details: violations > 0 ? `${violations}/${checked} files have heading hierarchy issues (skipped levels or missing H1)` : "Heading hierarchy is clean"
+  };
+}
+async function checkImgAltText(files) {
+  let totalImages = 0;
+  let missingAlt = 0;
+  for (const file of files) {
+    if (!/\.(ts|tsx|js|jsx|astro|vue|svelte|html)$/i.test(file)) continue;
+    try {
+      const content = await readFile4(file, "utf8");
+      const imgs = content.match(/<img\b[^>]*>/gi) ?? [];
+      totalImages += imgs.length;
+      for (const img of imgs) {
+        if (!/\balt\s*=/i.test(img)) {
+          missingAlt++;
+        }
+      }
+    } catch {
+    }
+  }
+  if (totalImages === 0) return { valid: true, details: "No images found" };
+  return {
+    valid: missingAlt === 0,
+    details: missingAlt > 0 ? `${missingAlt}/${totalImages} images missing alt text` : `All ${totalImages} images have alt text`
+  };
+}
 async function audit(options = {}) {
   const root = options.root ?? process.cwd();
   const files = await walkFiles(root);
+  const [jsonLdValidation, duplicateMeta, headingCheck, imgAltCheck] = await Promise.all([
+    validateJsonLdSchema(files),
+    checkDuplicateMeta(files),
+    checkHeadingHierarchy(files),
+    checkImgAltText(files)
+  ]);
   const checks = [
     {
       label: "Sitemap",
@@ -1503,8 +2047,32 @@ async function audit(options = {}) {
     {
       label: "Structured data (JSON-LD)",
       implemented: await hasPattern(files, /application\/ld\+json|"@context"\s*:\s*"https:\/\/schema.org"/i),
-      weight: 15,
+      weight: 10,
       details: "Detected by JSON-LD script or schema.org context"
+    },
+    {
+      label: "JSON-LD schema validity",
+      implemented: jsonLdValidation.valid,
+      weight: 5,
+      details: jsonLdValidation.details
+    },
+    {
+      label: "Unique titles and descriptions",
+      implemented: duplicateMeta.unique,
+      weight: 10,
+      details: duplicateMeta.details
+    },
+    {
+      label: "Heading hierarchy",
+      implemented: headingCheck.valid,
+      weight: 5,
+      details: headingCheck.details
+    },
+    {
+      label: "Image alt text",
+      implemented: imgAltCheck.valid,
+      weight: 5,
+      details: imgAltCheck.details
     },
     {
       label: "404 handling",
@@ -1545,6 +2113,8 @@ SEO score: ${score}/${maxScore} \u2014 ${normalizedScore}/100 (${grade})`);
 }
 
 // src/core/propose.ts
+init_intent();
+init_utils();
 var DEFAULT_LIMIT = 40;
 var EXTRA_PATTERNS = [
   "{seed} tools",
@@ -1606,6 +2176,8 @@ function propose(options) {
 }
 
 // src/core/score.ts
+init_intent();
+init_utils();
 function scoreEntity(entity) {
   const checks = [];
   let total = 0;
@@ -1760,6 +2332,7 @@ Context saved to ${outputPath}`);
 }
 
 // src/core/optimize/index.ts
+init_generate();
 import path8 from "path";
 
 // src/core/optimize/gscClient.ts
@@ -1848,6 +2421,7 @@ async function queryGSC(siteUrl, accessToken, body) {
 }
 
 // src/core/optimize/entityMapper.ts
+init_utils();
 function mapEntitiesToGSC(entities, gscPages, siteUrl) {
   const normalizedSite = siteUrl.replace(/\/+$/, "");
   return entities.map((entity) => {
@@ -1863,13 +2437,13 @@ function findMatchingPage(entity, gscPages, siteUrl) {
   );
   if (exact) return exact;
   const endsWith = gscPages.find((p) => {
-    const path11 = urlPath(p.page);
-    return path11 === `/${slug}` || path11 === `/${slug}/`;
+    const path12 = urlPath(p.page);
+    return path12 === `/${slug}` || path12 === `/${slug}/`;
   });
   if (endsWith) return endsWith;
   const contains = gscPages.find((p) => {
-    const path11 = urlPath(p.page);
-    return path11.includes(`/${slug}`);
+    const path12 = urlPath(p.page);
+    return path12.includes(`/${slug}`);
   });
   if (contains) return contains;
   const entitySlug = slugify(entity.name);
@@ -2141,6 +2715,8 @@ function scoreToPriority(score) {
 }
 
 // src/core/optimize/optimizer.ts
+init_generate();
+init_utils();
 import { readFile as readFile5 } from "fs/promises";
 import path7 from "path";
 async function applyAutoFixes(results, entities, outputRoot) {
@@ -2265,6 +2841,8 @@ Top priority entities:`);
 }
 
 // src/core/blog.ts
+init_generate();
+init_intent();
 import path9 from "path";
 var TOPIC_TEMPLATES = {
   commercial: [
@@ -2344,6 +2922,70 @@ async function blog(options) {
 }
 
 // src/core/keywords.ts
+init_intent();
+init_utils();
+import { readFile as readFile6 } from "fs/promises";
+function parseCsvLine(line) {
+  const columns = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      columns.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  columns.push(current.trim());
+  return columns;
+}
+function detectColumnIndex(headers, aliases) {
+  const lower = headers.map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  for (const alias of aliases) {
+    const idx = lower.indexOf(alias.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+async function importKeywordData(csvPath) {
+  const raw = await readFile6(csvPath, "utf8");
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return /* @__PURE__ */ new Map();
+  const headers = parseCsvLine(lines[0]);
+  const kwIdx = detectColumnIndex(headers, ["keyword", "query", "search term", "term", "keyphrase"]);
+  const volIdx = detectColumnIndex(headers, ["volume", "search volume", "avg monthly searches", "monthly volume"]);
+  const diffIdx = detectColumnIndex(headers, ["difficulty", "kd", "keyword difficulty", "competition"]);
+  const cpcIdx = detectColumnIndex(headers, ["cpc", "cost per click", "avg cpc"]);
+  if (kwIdx === -1) return /* @__PURE__ */ new Map();
+  const result = /* @__PURE__ */ new Map();
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const keyword = cols[kwIdx]?.trim();
+    if (!keyword) continue;
+    result.set(slugify(keyword), {
+      keyword,
+      volume: volIdx !== -1 ? Number.parseInt(cols[volIdx], 10) || void 0 : void 0,
+      difficulty: diffIdx !== -1 ? Number.parseFloat(cols[diffIdx]) || void 0 : void 0,
+      cpc: cpcIdx !== -1 ? Number.parseFloat(cols[cpcIdx].replace(/[$€£]/g, "")) || void 0 : void 0
+    });
+  }
+  return result;
+}
 var HIGH_VOLUME_MODIFIERS = /\b(?:best|top|free|cheap|review|how to|what is)\b/i;
 var MEDIUM_VOLUME_MODIFIERS = /\b(?:vs|alternative|comparison|pricing|cost)\b/i;
 var LONG_TAIL_THRESHOLD = 4;
@@ -2385,8 +3027,29 @@ function calculateOpportunity(volume, difficulty, intent) {
   const compositeScore = Math.round(volumeScore * difficultyMultiplier * intentMultiplier * 2);
   return Math.min(100, Math.max(0, compositeScore));
 }
-function analyzeKeyword(entity) {
+function difficultyFromScore(score) {
+  if (score <= 30) return "easy";
+  if (score <= 60) return "medium";
+  return "hard";
+}
+function analyzeKeyword(entity, imported) {
   const { intent } = classifyIntent(entity.name);
+  const row = imported?.get(entity.slug);
+  if (row) {
+    const volume2 = row.volume ?? estimateVolume(entity.name);
+    const difficulty2 = row.difficulty !== void 0 ? difficultyFromScore(row.difficulty) : estimateDifficulty(entity.name);
+    const cpc = row.cpc !== void 0 ? `$${row.cpc.toFixed(2)}` : estimateCpc(intent);
+    return {
+      keyword: entity.name,
+      slug: entity.slug,
+      estimatedMonthlyVolume: volume2,
+      difficulty: difficulty2,
+      intent,
+      cpcEstimate: cpc,
+      opportunityScore: calculateOpportunity(volume2, difficulty2, intent),
+      dataSource: "imported"
+    };
+  }
   const volume = estimateVolume(entity.name);
   const difficulty = estimateDifficulty(entity.name);
   return {
@@ -2396,11 +3059,12 @@ function analyzeKeyword(entity) {
     difficulty,
     intent,
     cpcEstimate: estimateCpc(intent),
-    opportunityScore: calculateOpportunity(volume, difficulty, intent)
+    opportunityScore: calculateOpportunity(volume, difficulty, intent),
+    dataSource: "heuristic"
   };
 }
-function analyzeKeywords(entities) {
-  return entities.map(analyzeKeyword).sort((a, b) => b.opportunityScore - a.opportunityScore);
+function analyzeKeywords(entities, imported) {
+  return entities.map((e) => analyzeKeyword(e, imported)).sort((a, b) => b.opportunityScore - a.opportunityScore);
 }
 
 // src/core/quality.ts
@@ -2433,7 +3097,7 @@ function fleschKincaid(text) {
   const score = 206.835 - 1.015 * (words.length / sentences) - 84.6 * (syllables / words.length);
   return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
 }
-function checkHeadingHierarchy(text) {
+function checkHeadingHierarchy2(text) {
   const headings = [...text.matchAll(/^(#{1,6})\s+.+$/gm)].map((m) => m[1].length);
   if (headings.length === 0) {
     return { valid: false, detail: "No headings found" };
@@ -2484,7 +3148,7 @@ function scoreContent(entity, content) {
     detail: `Flesch score: ${fk}`
   });
   total += readScore;
-  const headingCheck = checkHeadingHierarchy(content);
+  const headingCheck = checkHeadingHierarchy2(content);
   const headingScore = headingCheck.valid ? 20 : 5;
   checks.push({
     label: "Heading hierarchy",
@@ -2551,6 +3215,7 @@ function scoreAllContent(entities, contentMap) {
 }
 
 // src/cli.ts
+init_utils();
 function asString(value) {
   return typeof value === "string" ? value : void 0;
 }
@@ -2559,7 +3224,7 @@ function asStringArray(values) {
 }
 function validateOutputPath(outputPath) {
   assertSafePath(outputPath);
-  return path10.resolve(outputPath);
+  return path11.resolve(outputPath);
 }
 function parseCli() {
   return parseArgs({
@@ -2583,8 +3248,11 @@ function parseCli() {
       site: { type: "string" },
       "title-template": { type: "string" },
       "auto-fix": { type: "boolean" },
+      "dry-run": { type: "boolean" },
       "access-token": { type: "string" },
       "posts-per-entity": { type: "string" },
+      "max-links": { type: "string" },
+      "keyword-data": { type: "string" },
       concurrency: { type: "string" },
       force: { type: "boolean" },
       help: { type: "boolean", short: "h" }
@@ -2592,23 +3260,23 @@ function parseCli() {
     strict: true
   });
 }
-function defaultOutputRoot2(framework) {
+function defaultOutputRoot3(framework) {
   switch (framework) {
     case "nextjs":
       return "app";
     case "astro":
-      return path10.join("src", "pages");
+      return path11.join("src", "pages");
     case "nuxt":
       return "pages";
     case "sveltekit":
-      return path10.join("src", "routes");
+      return path11.join("src", "routes");
     case "remix":
-      return path10.join("app", "routes");
+      return path11.join("app", "routes");
   }
 }
 async function readJsonIfExists(filePath) {
   try {
-    const raw = await readFile6(filePath, "utf8");
+    const raw = await readFile8(filePath, "utf8");
     return JSON.parse(raw);
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
@@ -2618,7 +3286,7 @@ async function readJsonIfExists(filePath) {
   }
 }
 async function detectFramework() {
-  const packageJson = await readJsonIfExists(path10.join(process.cwd(), "package.json"));
+  const packageJson = await readJsonIfExists(path11.join(process.cwd(), "package.json"));
   const dependencies = {
     ...packageJson?.dependencies,
     ...packageJson?.devDependencies
@@ -2668,24 +3336,24 @@ async function resolveFramework(value) {
   return await detectFramework() ?? promptFramework();
 }
 async function readConfig() {
-  const config = await readJsonIfExists(path10.join(process.cwd(), "sophon.config.json"));
+  const config = await readJsonIfExists(path11.join(process.cwd(), "sophon.config.json"));
   return config;
 }
 async function loadDiscoverResult(filePath) {
-  const raw = await readFile6(filePath, "utf8");
+  const raw = await readFile8(filePath, "utf8");
   return JSON.parse(raw);
 }
 async function initCommand(values) {
   const framework = await resolveFramework(asString(values.framework));
   const config = {
     framework,
-    entitiesPath: path10.join("data", "entities.json"),
-    pagesOutput: defaultOutputRoot2(framework),
+    entitiesPath: path11.join("data", "entities.json"),
+    pagesOutput: defaultOutputRoot3(framework),
     technicalOutput: "public",
-    enrichOutput: path10.join("data", "enriched")
+    enrichOutput: path11.join("data", "enriched")
   };
   await writeGeneratedFile(
-    path10.join(process.cwd(), "sophon.config.json"),
+    path11.join(process.cwd(), "sophon.config.json"),
     `${JSON.stringify(config, null, 2)}
 `
   );
@@ -2704,7 +3372,7 @@ async function discoverCommand(values) {
     titleTemplate: asString(values["title-template"]),
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)]
   });
-  const outputPath = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? path10.join("data", "entities.json");
+  const outputPath = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? path11.join("data", "entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `);
   return result;
@@ -2719,7 +3387,7 @@ async function proposeCommand(values) {
     patterns: [...asStringArray(values.pattern), ...asStringArray(values.patterns)],
     limit: Number.parseInt(asString(values.limit) ?? "", 10) || void 0
   });
-  const outputPath = safeOutput(asString(values["propose-output"]) ?? asString(values.output)) ?? path10.join("data", "proposed-entities.json");
+  const outputPath = safeOutput(asString(values["propose-output"]) ?? asString(values.output)) ?? path11.join("data", "proposed-entities.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `, {
     force: Boolean(values.force)
@@ -2729,7 +3397,7 @@ async function proposeCommand(values) {
 }
 async function generateCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const framework = await resolveFramework(asString(values.framework));
   await generate({
@@ -2743,7 +3411,7 @@ async function generateCommand(values) {
 }
 async function technicalCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const site = asString(values.site);
   if (!site) {
@@ -2753,27 +3421,29 @@ async function technicalCommand(values) {
     entities: payload.entities,
     site,
     output: safeOutput(asString(values["technical-output"]) ?? asString(values.output)) ?? config?.technicalOutput,
-    force: Boolean(values.force)
+    force: Boolean(values.force),
+    maxLinks: Number.parseInt(asString(values["max-links"]) ?? "", 10) || void 0
   });
 }
 async function enrichCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   await enrich({
     entities: payload.entities,
     output: safeOutput(asString(values["enrich-output"]) ?? asString(values.output)) ?? config?.enrichOutput,
     concurrency: Number.parseInt(asString(values.concurrency) ?? "", 10) || void 0,
-    force: Boolean(values.force)
+    force: Boolean(values.force),
+    dryRun: Boolean(values["dry-run"])
   });
 }
 async function runCommand(values) {
   const config = await readConfig();
   const framework = await resolveFramework(asString(values.framework));
-  const discoverOutput = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
-  const generateOutput = safeOutput(asString(values["generate-output"])) ?? config?.pagesOutput ?? defaultOutputRoot2(framework);
+  const discoverOutput = safeOutput(asString(values["discover-output"]) ?? asString(values.output)) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
+  const generateOutput = safeOutput(asString(values["generate-output"])) ?? config?.pagesOutput ?? defaultOutputRoot3(framework);
   const technicalOutput = safeOutput(asString(values["technical-output"])) ?? config?.technicalOutput ?? "public";
-  const enrichOutput = safeOutput(asString(values["enrich-output"])) ?? config?.enrichOutput ?? path10.join("data", "enriched");
+  const enrichOutput = safeOutput(asString(values["enrich-output"])) ?? config?.enrichOutput ?? path11.join("data", "enriched");
   console.log("Running discover...");
   const result = await discover({
     csv: asString(values.csv),
@@ -2818,7 +3488,7 @@ async function auditCommand() {
 }
 async function optimizeCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const site = asString(values.site);
   if (!site) {
@@ -2829,16 +3499,16 @@ async function optimizeCommand(values) {
     entities: payload.entities,
     limit: Number.parseInt(asString(values.limit) ?? "", 10) || void 0,
     autoFix: Boolean(values["auto-fix"]),
-    output: safeOutput(asString(values.output)) ?? path10.join("data", "optimization-report.json"),
+    output: safeOutput(asString(values.output)) ?? path11.join("data", "optimization-report.json"),
     accessToken: asString(values["access-token"])
   });
 }
 async function scoreCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   const result = scoreEntities(payload.entities);
-  const outputPath = safeOutput(asString(values.output)) ?? path10.join("data", "scores.json");
+  const outputPath = safeOutput(asString(values.output)) ?? path11.join("data", "scores.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(result, null, 2)}
 `, {
     force: Boolean(values.force)
@@ -2856,25 +3526,28 @@ Entities needing attention (${lowScoring.length}):`);
 }
 async function blogCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
   await blog({
     entities: payload.entities,
-    output: safeOutput(asString(values.output)) ?? path10.join("data", "blog"),
+    output: safeOutput(asString(values.output)) ?? path11.join("data", "blog"),
     postsPerEntity: Number.parseInt(asString(values["posts-per-entity"]) ?? "", 10) || void 0
   });
 }
 async function keywordsCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
-  const results = analyzeKeywords(payload.entities);
-  const outputPath = safeOutput(asString(values.output)) ?? path10.join("data", "keywords.json");
+  const keywordDataPath = asString(values["keyword-data"]);
+  const imported = keywordDataPath ? await importKeywordData(keywordDataPath) : void 0;
+  const results = analyzeKeywords(payload.entities, imported);
+  const outputPath = safeOutput(asString(values.output)) ?? path11.join("data", "keywords.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(results, null, 2)}
 `, {
     force: Boolean(values.force)
   });
-  console.log(`Analyzed ${results.length} keywords`);
+  const importedCount = results.filter((r) => r.dataSource === "imported").length;
+  console.log(`Analyzed ${results.length} keywords${importedCount > 0 ? ` (${importedCount} from imported data)` : ""}`);
   const top = results.slice(0, 5);
   for (const kw of top) {
     console.log(`  ${kw.keyword}: vol ~${kw.estimatedMonthlyVolume}, difficulty ${kw.difficulty}, opportunity ${kw.opportunityScore}`);
@@ -2882,19 +3555,19 @@ async function keywordsCommand(values) {
 }
 async function qualityCommand(values) {
   const config = await readConfig();
-  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path10.join("data", "entities.json");
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
-  const contentDir = safeOutput(asString(values.output)) ?? config?.enrichOutput ?? path10.join("data", "enriched");
+  const contentDir = safeOutput(asString(values.output)) ?? config?.enrichOutput ?? path11.join("data", "enriched");
   const contentMap = /* @__PURE__ */ new Map();
   for (const entity of payload.entities) {
     try {
-      const raw = await readFile6(path10.join(contentDir, entity.slug, "content.json"), "utf8");
+      const raw = await readFile8(path11.join(contentDir, entity.slug, "content.json"), "utf8");
       contentMap.set(entity.slug, raw);
     } catch {
     }
   }
   const report = scoreAllContent(payload.entities, contentMap);
-  const reportPath = safeOutput(asString(values.output)) ?? path10.join("data", "quality-report.json");
+  const reportPath = safeOutput(asString(values.output)) ?? path11.join("data", "quality-report.json");
   await writeGeneratedFile(reportPath, `${JSON.stringify(report, null, 2)}
 `, {
     force: Boolean(values.force)
@@ -2915,9 +3588,66 @@ async function humanizeCommand(values) {
   if (!inputPath) {
     throw new Error("Provide a file path: sophon humanize --entities <file>");
   }
-  const raw = await readFile6(inputPath, "utf8");
+  const raw = await readFile8(inputPath, "utf8");
   const result = humanize(raw);
   console.log(result);
+}
+async function staleCommand(values) {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+  const maxAgeDays = Number.parseInt(asString(values.limit) ?? "30", 10);
+  const now = Date.now();
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1e3;
+  const staleEntities = [];
+  for (const entity of payload.entities) {
+    const enrichedAt = entity.metadata.enrichedAt;
+    const generatedAt = entity.metadata.generatedAt;
+    const timestamp = enrichedAt ?? generatedAt;
+    if (!timestamp) {
+      staleEntities.push({ slug: entity.slug, age: -1, reason: "no timestamp" });
+      continue;
+    }
+    const age = now - new Date(timestamp).getTime();
+    if (age > maxAgeMs) {
+      const days = Math.round(age / (24 * 60 * 60 * 1e3));
+      staleEntities.push({ slug: entity.slug, age: days, reason: `${days} days old` });
+    }
+  }
+  if (staleEntities.length === 0) {
+    console.log(`No stale entities (threshold: ${maxAgeDays} days)`);
+    return;
+  }
+  console.log(`Stale entities (>${maxAgeDays} days): ${staleEntities.length}/${payload.entities.length}`);
+  for (const entry of staleEntities.slice(0, 20)) {
+    console.log(`  ${entry.slug}: ${entry.reason}`);
+  }
+  if (staleEntities.length > 20) {
+    console.log(`  ... and ${staleEntities.length - 20} more`);
+  }
+}
+async function diffCommand(values) {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path11.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+  const framework = await resolveFramework(asString(values.framework));
+  const { diffGenerate: diffGenerate2 } = await Promise.resolve().then(() => (init_diff(), diff_exports));
+  const result = await diffGenerate2({
+    entities: payload.entities,
+    framework,
+    output: safeOutput(asString(values["generate-output"]) ?? asString(values.output)) ?? config?.pagesOutput,
+    site: asString(values.site)
+  });
+  console.log(`Diff summary: ${result.newPages} new, ${result.updatedPages} updated, ${result.unchangedPages} unchanged, ${result.removedPages} removed`);
+  if (result.changes.length > 0) {
+    console.log("\nChanges:");
+    for (const change of result.changes.slice(0, 20)) {
+      console.log(`  [${change.type}] ${change.path}`);
+    }
+    if (result.changes.length > 20) {
+      console.log(`  ... and ${result.changes.length - 20} more`);
+    }
+  }
 }
 function printHelp() {
   console.log(`sophon <command>
@@ -2938,6 +3668,8 @@ Commands:
   sophon keywords
   sophon quality
   sophon humanize --entities <file>
+  sophon stale [--limit 30]
+  sophon diff --framework nextjs
 
 Common flags:
   --entities <path>
@@ -2948,6 +3680,8 @@ Common flags:
   --enrich-output <path>
   --site <url>
   --limit <number>
+  --max-links <number>
+  --keyword-data <csv-path>
   --concurrency <number>
   --force`);
 }
@@ -3003,6 +3737,12 @@ async function main() {
       return;
     case "humanize":
       await humanizeCommand(parsed.values);
+      return;
+    case "stale":
+      await staleCommand(parsed.values);
+      return;
+    case "diff":
+      await diffCommand(parsed.values);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

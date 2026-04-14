@@ -14,6 +14,7 @@ const entity = {
   description: __ENTITY_DESCRIPTION__,
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
+  ogImage: __ENTITY_OG_IMAGE__,
 } as const;
 
 const siteUrl = __SITE_URL__;
@@ -31,9 +32,11 @@ useHead({
     { property: "og:description", content: entity.description },
     { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
+    ...(entity.ogImage ? [{ property: "og:image", content: entity.ogImage }, { property: "og:image:alt", content: entity.title }] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
     { name: "twitter:description", content: entity.description },
+    ...(entity.ogImage ? [{ name: "twitter:image", content: entity.ogImage }] : []),
   ],
   link: [{ rel: "canonical", href: siteUrl + "/" + entity.slug }],
   script: [{ type: "application/ld+json", innerHTML: JSON.stringify(jsonLd) }],
@@ -44,6 +47,7 @@ useHead({
   <main>
     <h1>{{ entity.title }}</h1>
     <p>{{ entity.description }}</p>
+    <img v-if="entity.ogImage" :src="entity.ogImage" :alt="entity.title" loading="lazy" width="1200" height="630" />
 __ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
   </main>

@@ -111,6 +111,7 @@ function toEntity(
       description: buildDescription(cleanName, source, options.seedKeyword),
       tags: options.seedKeyword ? [options.seedKeyword] : [],
       attributes: options.attributes,
+      generatedAt: new Date().toISOString(),
     },
   };
 }

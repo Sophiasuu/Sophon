@@ -16,7 +16,7 @@ import { scoreEntities } from "./core/score";
 import { teach } from "./core/teach";
 import { optimize } from "./core/optimize";
 import { blog } from "./core/blog";
-import { analyzeKeywords } from "./core/keywords";
+import { analyzeKeywords, importKeywordData } from "./core/keywords";
 import { scoreAllContent } from "./core/quality";
 import { humanize } from "./core/humanize";
 import { assertSafePath } from "./core/utils";
@@ -65,8 +65,11 @@ function parseCli() {
       site: { type: "string" },
       "title-template": { type: "string" },
       "auto-fix": { type: "boolean" },
+      "dry-run": { type: "boolean" },
       "access-token": { type: "string" },
       "posts-per-entity": { type: "string" },
+      "max-links": { type: "string" },
+      "keyword-data": { type: "string" },
       concurrency: { type: "string" },
       force: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -271,6 +274,7 @@ async function technicalCommand(values: ReturnType<typeof parseCli>["values"]): 
     site,
     output: safeOutput(asString(values["technical-output"]) ?? asString(values.output)) ?? config?.technicalOutput,
     force: Boolean(values.force),
+    maxLinks: Number.parseInt(asString(values["max-links"]) ?? "", 10) || undefined,
   });
 }
 
@@ -284,6 +288,7 @@ async function enrichCommand(values: ReturnType<typeof parseCli>["values"]): Pro
     output: safeOutput(asString(values["enrich-output"]) ?? asString(values.output)) ?? config?.enrichOutput,
     concurrency: Number.parseInt(asString(values.concurrency) ?? "", 10) || undefined,
     force: Boolean(values.force),
+    dryRun: Boolean(values["dry-run"]),
   });
 }
 
@@ -405,14 +410,17 @@ async function keywordsCommand(values: ReturnType<typeof parseCli>["values"]): P
   const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
   const payload = await loadDiscoverResult(entitiesPath);
 
-  const results = analyzeKeywords(payload.entities);
+  const keywordDataPath = asString(values["keyword-data"]);
+  const imported = keywordDataPath ? await importKeywordData(keywordDataPath) : undefined;
+  const results = analyzeKeywords(payload.entities, imported);
 
   const outputPath = safeOutput(asString(values.output)) ?? path.join("data", "keywords.json");
   await writeGeneratedFile(outputPath, `${JSON.stringify(results, null, 2)}\n`, {
     force: Boolean(values.force),
   });
 
-  console.log(`Analyzed ${results.length} keywords`);
+  const importedCount = results.filter((r) => r.dataSource === "imported").length;
+  console.log(`Analyzed ${results.length} keywords${importedCount > 0 ? ` (${importedCount} from imported data)` : ""}`);
   const top = results.slice(0, 5);
   for (const kw of top) {
     console.log(`  ${kw.keyword}: vol ~${kw.estimatedMonthlyVolume}, difficulty ${kw.difficulty}, opportunity ${kw.opportunityScore}`);
@@ -469,6 +477,73 @@ async function humanizeCommand(values: ReturnType<typeof parseCli>["values"]): P
   console.log(result);
 }
 
+async function staleCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+
+  const maxAgeDays = Number.parseInt(asString(values.limit) ?? "30", 10);
+  const now = Date.now();
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+  const staleEntities: Array<{ slug: string; age: number; reason: string }> = [];
+
+  for (const entity of payload.entities) {
+    const enrichedAt = entity.metadata.enrichedAt;
+    const generatedAt = entity.metadata.generatedAt;
+    const timestamp = enrichedAt ?? generatedAt;
+
+    if (!timestamp) {
+      staleEntities.push({ slug: entity.slug, age: -1, reason: "no timestamp" });
+      continue;
+    }
+
+    const age = now - new Date(timestamp).getTime();
+    if (age > maxAgeMs) {
+      const days = Math.round(age / (24 * 60 * 60 * 1000));
+      staleEntities.push({ slug: entity.slug, age: days, reason: `${days} days old` });
+    }
+  }
+
+  if (staleEntities.length === 0) {
+    console.log(`No stale entities (threshold: ${maxAgeDays} days)`);
+    return;
+  }
+
+  console.log(`Stale entities (>${maxAgeDays} days): ${staleEntities.length}/${payload.entities.length}`);
+  for (const entry of staleEntities.slice(0, 20)) {
+    console.log(`  ${entry.slug}: ${entry.reason}`);
+  }
+  if (staleEntities.length > 20) {
+    console.log(`  ... and ${staleEntities.length - 20} more`);
+  }
+}
+
+async function diffCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+  const framework = await resolveFramework(asString(values.framework));
+  const { diffGenerate } = await import("./core/diff");
+
+  const result = await diffGenerate({
+    entities: payload.entities,
+    framework,
+    output: safeOutput(asString(values["generate-output"]) ?? asString(values.output)) ?? config?.pagesOutput,
+    site: asString(values.site),
+  });
+
+  console.log(`Diff summary: ${result.newPages} new, ${result.updatedPages} updated, ${result.unchangedPages} unchanged, ${result.removedPages} removed`);
+  if (result.changes.length > 0) {
+    console.log("\nChanges:");
+    for (const change of result.changes.slice(0, 20)) {
+      console.log(`  [${change.type}] ${change.path}`);
+    }
+    if (result.changes.length > 20) {
+      console.log(`  ... and ${result.changes.length - 20} more`);
+    }
+  }
+}
+
 function printHelp(): void {
   console.log(`sophon <command>
 
@@ -488,6 +563,8 @@ Commands:
   sophon keywords
   sophon quality
   sophon humanize --entities <file>
+  sophon stale [--limit 30]
+  sophon diff --framework nextjs
 
 Common flags:
   --entities <path>
@@ -498,6 +575,8 @@ Common flags:
   --enrich-output <path>
   --site <url>
   --limit <number>
+  --max-links <number>
+  --keyword-data <csv-path>
   --concurrency <number>
   --force`);
 }
@@ -556,6 +635,12 @@ async function main(): Promise<void> {
       return;
     case "humanize":
       await humanizeCommand(parsed.values);
+      return;
+    case "stale":
+      await staleCommand(parsed.values);
+      return;
+    case "diff":
+      await diffCommand(parsed.values);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

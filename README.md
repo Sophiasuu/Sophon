@@ -34,14 +34,17 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 
 ## Core Workflow ⚙️
 
-1. **Discover 🔎** — normalize entities from a CSV or seed keyword into `data/entities.json`
+1. **Discover 🔎** — normalize entities from a CSV or seed keyword into `data/entities.json`, with `generatedAt` timestamps for freshness tracking
 2. **Propose 🧭** — generate intent-aware entity suggestions with priority, confidence, and action recommendations
-3. **Generate 🧱** — scaffold one page per entity with **intent-specific sections**, OG/Twitter cards, canonical, and YMYL warnings baked in
-4. **Technical 🛠️** — emit `sitemap.xml`, `robots.txt`, JSON-LD schema, internal link graph, and hreflang scaffold
-5. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content
-6. **Score 📊** — check entity health (metadata completeness, intent confidence, slug quality) with A-F grades
-7. **Audit ✅** — scan existing SEO implementation and get a weighted score with letter grade
-8. **Optimize 🚀** — pull real GSC performance data, detect underperforming pages, and generate prioritized recommendations
+3. **Generate 🧱** — scaffold one page per entity with **intent-specific sections**, OG/Twitter cards, hero images, canonical, fallback content from metadata, and YMYL warnings baked in
+4. **Technical 🛠️** — emit `sitemap.xml` (with automatic sitemap index for >45K URLs), `robots.txt`, JSON-LD schema (with AggregateRating and BreadcrumbList), configurable internal link graph, and hreflang scaffold
+5. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content — with exponential backoff retry and `--dry-run` mode
+6. **Keywords 🔑** — keyword difficulty and opportunity analysis with optional real data import from CSV (Ahrefs, SEMrush, Google Keyword Planner)
+7. **Score 📊** — check entity health (metadata completeness, intent confidence, slug quality) with A-F grades
+8. **Audit ✅** — scan existing SEO implementation across 12 weighted checks (including JSON-LD validity, duplicate meta detection, heading hierarchy, and image alt text)
+9. **Optimize 🚀** — pull real GSC performance data, detect underperforming pages, and generate prioritized recommendations
+10. **Diff 🔄** — preview what pages would change before regenerating (new/updated/unchanged/removed)
+11. **Stale 📅** — list entities older than N days for content freshness management
 
 ## Repository Structure 📁
 
@@ -137,25 +140,38 @@ All pages include:
 
 ```bash
 npx @sophonn/sophon technical --site https://example.com
+
+# With configurable internal link count
+npx @sophonn/sophon technical --site https://example.com --max-links 8
 ```
 
 Outputs:
 
 | File | Description |
 |------|-------------|
-| `sitemap.xml` | All entity URLs with `lastmod`, `changefreq`, `priority` |
+| `sitemap.xml` | All entity URLs with `lastmod` (from `enrichedAt`/`generatedAt`), `changefreq`, `priority` — auto-splits into sitemap index for >45K URLs |
 | `robots.txt` | `Allow: *` + sitemap pointer |
-| `public/sophon/schema.json` | JSON-LD per entity (`WebPage`, `LocalBusiness`, `Product`, `SoftwareApplication`) |
-| `public/sophon/internal-links.json` | Related entity pairs scored by shared tags and seed keyword |
+| `public/sophon/schema.json` | JSON-LD per entity (`WebPage`, `LocalBusiness`, `Product`, `SoftwareApplication`) with optional `AggregateRating` |
+| `public/sophon/breadcrumbs.json` | BreadcrumbList schema per entity (Home → Entity) |
+| `public/sophon/internal-links.json` | Related entity pairs scored by shared tags and intent affinity (configurable limit via `--max-links`, default 5) |
 | `public/sophon/hreflang.txt` | `<link rel="alternate">` scaffold — wire into your framework manually |
 
 ### 6. Enrich with AI 🤖
 
 ```bash
 npx @sophonn/sophon enrich
+
+# Preview prompts without calling the API
+npx @sophonn/sophon enrich --dry-run
 ```
 
-Requires `ANTHROPIC_API_KEY`. Calls Claude to generate structured content per entity: intro, sections, FAQs, comparisons. Uses TODO markers instead of invented content when data is missing. Writes one JSON file per entity to `data/enriched/`.
+Requires `ANTHROPIC_API_KEY` (unless using `--dry-run`). Calls Claude to generate structured content per entity: intro, sections, FAQs, comparisons. Uses TODO markers instead of invented content when data is missing. Writes one JSON file per entity to `data/enriched/`.
+
+Features:
+- **Exponential backoff retry** — automatically retries on 429/500/502/503/529 errors (configurable via `--max-retries`, default 3)
+- **Dry-run mode** — outputs the system and user prompts without calling the API, useful for reviewing what would be sent
+- **Enrichment timestamp** — sets `enrichedAt` on each entity for downstream freshness tracking in sitemaps
+- **Cache-aware** — skips already-enriched entities unless `--force` is passed
 
 ### 7. Run the full pipeline 🏁
 
@@ -182,18 +198,28 @@ npx @sophonn/sophon run \
 npx @sophonn/sophon audit
 ```
 
-Checks 8 SEO implementations with weighted scoring:
+Checks 12 SEO implementations with weighted scoring:
 
 | Check | Weight |
 |-------|--------|
 | Canonical tags | 20 |
 | Sitemap | 15 |
 | Open Graph tags | 15 |
-| Structured data (JSON-LD) | 15 |
+| Structured data (JSON-LD) | 10 |
+| JSON-LD schema validity | 5 |
+| Unique titles and descriptions | 10 |
 | Robots.txt | 10 |
 | Twitter cards | 10 |
 | Redirect handling | 10 |
+| Heading hierarchy | 5 |
+| Image alt text | 5 |
 | 404 handling | 5 |
+
+New deep validation checks:
+- **JSON-LD validity** — verifies `@context`, `@type`, and `name` fields are present
+- **Duplicate meta** — detects identical `<title>` and `<meta description>` across files
+- **Heading hierarchy** — checks for H1 presence and no level skips (e.g. H1→H3)
+- **Image alt text** — counts `<img>` tags missing `alt` attributes
 
 Reports a normalized 0-100 score with letter grade (A/B/C/D/F).
 
@@ -236,6 +262,48 @@ With `--auto-fix`, Sophon inserts `[OPTIMIZE]` TODO markers into enriched conten
 
 Writes results to `data/optimization-report.json`.
 
+### 11. Keyword analysis with real data 🔑
+
+```bash
+npx @sophonn/sophon keywords
+
+# Import real keyword data from CSV
+npx @sophonn/sophon keywords --keyword-data ./ahrefs-export.csv
+```
+
+When `--keyword-data` is provided, Sophon imports real keyword metrics from CSV exports. Supports flexible column detection for Ahrefs, SEMrush, and Google Keyword Planner formats:
+
+| Column aliases detected | Data used |
+|------------------------|----------|
+| keyword, query, search term, keyphrase | Keyword name |
+| volume, search volume, avg monthly searches | Monthly volume |
+| difficulty, kd, keyword difficulty, competition | Difficulty score |
+| cpc, cost per click, avg cpc | CPC estimate |
+
+Imported data overrides heuristic estimates and is tagged with `dataSource: "imported"` in the output.
+
+### 12. Preview changes before regenerating 🔄
+
+```bash
+npx @sophonn/sophon diff --framework nextjs
+```
+
+Compares current generated files against what would be produced. Reports:
+- **New** — entities with no existing page file
+- **Updated** — Sophon-managed files whose content would change
+- **Unchanged** — files matching current generation output
+- **Removed** — orphaned Sophon-managed files whose entities were deleted
+
+Non-Sophon files (without the `SOPHON GENERATED` marker) are never flagged as removable.
+
+### 13. Content freshness management 📅
+
+```bash
+npx @sophonn/sophon stale --days 90
+```
+
+Lists entities whose `generatedAt` or `enrichedAt` timestamp is older than the specified number of days. Useful for scheduling re-enrichment cycles and keeping content fresh.
+
 ### Safeproof behavior (skip if already implemented) 🛡️
 
 Generation and technical commands now skip existing non-Sophon files by default and print a reminder that something is already in place.
@@ -260,6 +328,10 @@ import {
   scoreEntities,
   optimize,
   classifyIntent,
+  buildSitemapIndex,
+  buildBreadcrumbSchema,
+  importKeywordData,
+  diffGenerate,
 } from "@sophonn/sophon";
 
 const proposed = propose({ seed: "best payroll software", limit: 30 });
@@ -276,15 +348,29 @@ await technical({
   entities: result.entities,
   site: "https://example.com",
   output: "public",
+  maxLinks: 8, // configurable internal link count
 });
 
 await enrich({
   entities: result.entities,
   output: "data/enriched",
+  dryRun: false,     // set true to preview prompts without API calls
+  maxRetries: 3,     // exponential backoff retry count
 });
 
+// Import real keyword data from CSV
+const keywordData = await importKeywordData("./ahrefs-export.csv");
+const keywords = analyzeKeywords(result.entities, keywordData);
+
+// Preview what would change before regenerating
+const diff = await diffGenerate({
+  entities: result.entities,
+  framework: "nextjs",
+});
+// diff.newPages, diff.updatedPages, diff.removedPages
+
 const auditResult = await audit();
-// auditResult.score, auditResult.grade, auditResult.checks
+// auditResult.score, auditResult.grade, auditResult.checks (12 checks)
 
 const scores = scoreEntities(result.entities);
 // scores.averageScore, scores.averageGrade, scores.entities
@@ -322,44 +408,52 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 
 **What Sophon does ✅:**
 
-- Entity ingestion from CSV or seed keyword
+- Entity ingestion from CSV or seed keyword with `generatedAt` timestamps
 - Intent-aware entity proposal with priority and confidence scoring
 - Multi-framework page scaffolding (Next.js, Astro, Nuxt 3, SvelteKit, Remix)
 - **Intent-aware page layouts** — different TODO sections per intent (commercial, comparison, segmented, informational)
+- **Template-based fallback content** — metadata-derived content (attributes table, tags list) when no enrichment is available
 - OG + Twitter card meta tags on every generated page
+- **OG image support** (`og:image`, `twitter:image`) with conditional hero images and lazy loading across all adapters
 - Canonical URL per page
 - YMYL detection with editorial warnings
 - Duplicate slug detection (skips with warning)
-- `sitemap.xml` with `lastmod`, `changefreq`, `priority`
+- `sitemap.xml` with `lastmod` (from `enrichedAt`/`generatedAt`), `changefreq`, `priority`
+- **Sitemap index** — automatic chunking into 45K-URL child sitemaps with a sitemap index for large entity sets
 - `robots.txt` with sitemap pointer
 - JSON-LD schema inference (`WebPage`, `LocalBusiness`, `Product`, `SoftwareApplication`)
-- Internal link graph scored by shared tags and seed keyword
+- **BreadcrumbList** schema per entity (Home → Entity)
+- **AggregateRating** schema support for entities with `ratingValue`/`ratingCount` attributes
+- Internal link graph scored by shared tags, intent affinity, and word overlap — **configurable limit** via `--max-links` (default 5)
 - Hreflang scaffold for multilingual setups
 - AI content enrichment via Claude (no-hallucination prompt, TODO markers for missing data)
-- **Weighted SEO audit** with 0-100 score and A-F grade
+- **Enrichment retry** — exponential backoff for 429/500/502/503/529 errors
+- **Dry-run mode** — preview enrichment prompts without calling the API
+- **Real keyword data import** — CSV import from Ahrefs, SEMrush, Google Keyword Planner with flexible column detection
+- **Deep SEO audit** with 12 weighted checks (0-100 score, A-F grade) including JSON-LD validity, duplicate meta detection, heading hierarchy, and image alt text
 - **Entity health scoring** (metadata completeness, intent confidence, slug quality)
 - **GSC-powered optimization** — fetch real performance data, detect underperformance, generate typed recommendations
 - **Auto-fix system** — safely insert optimization TODOs into enriched content
+- **Content freshness tracking** — `generatedAt`/`enrichedAt` timestamps + `sophon stale` command
+- **Diff command** — preview new/updated/unchanged/removed pages before regenerating
 - Shared intent classification engine reusable via programmatic API
 - `sophon teach` onboarding flow that writes project context to `.sophon.md`
 - Multi-provider agent skill system (Claude, Cursor, Codex, VS Code)
 - Output path traversal protection (all `--output` flags validated against cwd)
 - XSS-safe template hydration (`<`/`>` escaped in entity values)
-- 173 tests across 13 test files (vitest)
+- 302 tests across 18 test files (vitest)
 
 **What Sophon does not do ❌:**
 
-- OG image generation or responsive image handling
+- OG image generation (supports user-provided `ogImage` URLs, but does not generate images)
 - Actual hreflang implementation (scaffold only — wire it yourself)
 - Multilingual content or i18n routing
 - Live SERP scraping or real-time data fetching
-- Keyword research (seed keywords are user-supplied)
 - Deployment or CI integration
 - Analytics or tracking tag injection
 - Core Web Vitals or page speed optimization
 - Google Analytics integration (bounce rate, session time) — planned
 - CMS sync (Contentful, Sanity, etc.)
-- Content freshness management or scheduled re-enrichment
 - A/B testing or variant generation
 
 ## What Is Not Part of This pSEO Yet (Coming Soon) ⏳
@@ -367,12 +461,11 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 These capabilities are intentionally out of scope today and planned for upcoming versions:
 
 - AI-assisted entity expansion and SERP-backed discovery providers
-- OG image generation per entity
+- OG image generation per entity (currently supports user-provided URLs)
 - First-class multilingual support (not just hreflang scaffold output)
 - Pagination and faceted navigation handling helpers
 - 404 and redirect helpers (including 301 mapping outputs)
 - CMS connectors (Contentful, Sanity)
-- Content freshness workflows and scheduled re-enrichment
 - Performance-focused generation defaults for Core Web Vitals
 
 ## Design Principles 🧭
@@ -385,10 +478,10 @@ These capabilities are intentionally out of scope today and planned for upcoming
 ## Roadmap 🛣️
 
 1. Pluggable entity discovery providers (SERP APIs, AI expansion)
-2. OG image generation per entity
+2. OG image generation per entity (currently supports user-provided URLs)
 3. Niche-aware schema presets replacing heuristic inference
 4. Review and approval workflow before publishing
-5. Content freshness management and scheduled re-enrichment (`sophon refresh`)
+5. Scheduled re-enrichment automation (`sophon refresh --cron`)
 6. CMS connector (Contentful, Sanity)
 7. Learning loop — GSC/GA4 data feedback for entity prioritization
 8. A/B testing and variant generation per intent

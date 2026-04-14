@@ -15,6 +15,23 @@ type SchemaRecord = {
   name: string;
   description: string;
   url: string;
+  aggregateRating?: {
+    "@type": "AggregateRating";
+    ratingValue: string;
+    bestRating: string;
+    ratingCount: string;
+  };
+};
+
+type BreadcrumbSchema = {
+  "@context": "https://schema.org";
+  "@type": "BreadcrumbList";
+  itemListElement: Array<{
+    "@type": "ListItem";
+    position: number;
+    name: string;
+    item: string;
+  }>;
 };
 
 type FaqSchemaRecord = {
@@ -58,12 +75,14 @@ function sitemapChangefreq(entity: EntityRecord): string {
   return intent === "commercial" || intent === "comparison" ? "weekly" : "monthly";
 }
 
+const SITEMAP_MAX_URLS = 45000;
+
 export function buildSitemap(siteUrl: string, entities: EntityRecord[]): string {
   const lastmod = todayDate();
   const urls = entities
     .map(
       (entity) =>
-        `  <url>\n    <loc>${siteUrl}/${entity.slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${sitemapChangefreq(entity)}</changefreq>\n    <priority>${sitemapPriority(entity)}</priority>\n  </url>`,
+        `  <url>\n    <loc>${siteUrl}/${entity.slug}</loc>\n    <lastmod>${entity.metadata.enrichedAt ?? entity.metadata.generatedAt ?? lastmod}</lastmod>\n    <changefreq>${sitemapChangefreq(entity)}</changefreq>\n    <priority>${sitemapPriority(entity)}</priority>\n  </url>`,
     )
     .join("\n");
 
@@ -74,6 +93,38 @@ export function buildSitemap(siteUrl: string, entities: EntityRecord[]): string 
     "</urlset>",
     "",
   ].join("\n");
+}
+
+export function buildSitemapIndex(siteUrl: string, entities: EntityRecord[]): { index: string; sitemaps: Array<{ name: string; content: string }> } | null {
+  if (entities.length <= SITEMAP_MAX_URLS) return null;
+
+  const chunks: EntityRecord[][] = [];
+  for (let i = 0; i < entities.length; i += SITEMAP_MAX_URLS) {
+    chunks.push(entities.slice(i, i + SITEMAP_MAX_URLS));
+  }
+
+  const lastmod = todayDate();
+  const sitemaps = chunks.map((chunk, i) => ({
+    name: `sitemap-${i + 1}.xml`,
+    content: buildSitemap(siteUrl, chunk),
+  }));
+
+  const indexEntries = sitemaps
+    .map(
+      (sm) =>
+        `  <sitemap>\n    <loc>${siteUrl}/${sm.name}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`,
+    )
+    .join("\n");
+
+  const index = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    indexEntries,
+    "</sitemapindex>",
+    "",
+  ].join("\n");
+
+  return { index, sitemaps };
 }
 
 export function buildRobots(siteUrl: string): string {
@@ -106,12 +157,48 @@ function inferSchemaType(entity: EntityRecord): string {
 }
 
 export function buildSchema(siteUrl: string, entities: EntityRecord[]): SchemaRecord[] {
+  return entities.map((entity) => {
+    const record: SchemaRecord = {
+      "@context": "https://schema.org",
+      "@type": inferSchemaType(entity),
+      name: entity.metadata.title ?? entity.name,
+      description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
+      url: `${siteUrl}/${entity.slug}`,
+    };
+
+    // Add AggregateRating for review/comparison entities when rating data exists
+    const attrs = entity.metadata.attributes ?? {};
+    if (attrs.ratingValue && attrs.ratingCount) {
+      record.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: attrs.ratingValue,
+        bestRating: attrs.bestRating ?? "5",
+        ratingCount: attrs.ratingCount,
+      };
+    }
+
+    return record;
+  });
+}
+
+export function buildBreadcrumbSchema(siteUrl: string, entities: EntityRecord[]): BreadcrumbSchema[] {
   return entities.map((entity) => ({
     "@context": "https://schema.org",
-    "@type": inferSchemaType(entity),
-    name: entity.metadata.title ?? entity.name,
-    description: entity.metadata.description ?? `SEO landing page for ${entity.name}.`,
-    url: `${siteUrl}/${entity.slug}`,
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: entity.metadata.title ?? entity.name,
+        item: `${siteUrl}/${entity.slug}`,
+      },
+    ],
   }));
 }
 
@@ -199,7 +286,10 @@ export function buildHreflang(siteUrl: string, entities: EntityRecord[]): string
   return lines;
 }
 
-export function buildInternalLinks(entities: EntityRecord[]): InternalLinkRecord[] {
+const DEFAULT_MAX_LINKS = 5;
+
+export function buildInternalLinks(entities: EntityRecord[], maxLinks?: number): InternalLinkRecord[] {
+  const limit = maxLinks ?? DEFAULT_MAX_LINKS;
   return entities.map((entity) => ({
     entity: entity.slug,
     relatedEntities: entities
@@ -210,7 +300,7 @@ export function buildInternalLinks(entities: EntityRecord[]): InternalLinkRecord
       })
       .filter((candidate) => candidate.score > 0)
       .sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug))
-      .slice(0, 5)
+      .slice(0, limit)
       .map((candidate) => ({ slug: candidate.slug, reason: candidate.reason })),
   }));
 }
@@ -243,10 +333,12 @@ export async function technical(options: TechnicalOptions): Promise<void> {
   const siteUrl = options.site.replace(/\/$/, "");
   const technicalRoot = path.join(outputRoot, "sophon");
 
-  const sitemap = buildSitemap(siteUrl, options.entities);
+  const sitemapIndexResult = buildSitemapIndex(siteUrl, options.entities);
+  const sitemap = sitemapIndexResult ? null : buildSitemap(siteUrl, options.entities);
   const robots = buildRobots(siteUrl);
   const schema = buildSchema(siteUrl, options.entities);
-  const internalLinks = buildInternalLinks(options.entities);
+  const breadcrumbs = buildBreadcrumbSchema(siteUrl, options.entities);
+  const internalLinks = buildInternalLinks(options.entities, options.maxLinks);
   const hreflang = buildHreflang(siteUrl, options.entities);
 
   // Build FAQ schemas only from enriched content (no hardcoded stubs)
@@ -259,16 +351,36 @@ export async function technical(options: TechnicalOptions): Promise<void> {
     }
   }
 
+  // Write sitemap index if over threshold, otherwise single sitemap
+  const sitemapWrites: Promise<boolean>[] = [];
+  if (sitemapIndexResult) {
+    sitemapWrites.push(
+      writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemapIndexResult.index, { force: options.force }),
+    );
+    for (const sm of sitemapIndexResult.sitemaps) {
+      sitemapWrites.push(
+        writeGeneratedFile(path.join(outputRoot, sm.name), sm.content, { force: options.force }),
+      );
+    }
+  } else {
+    sitemapWrites.push(
+      writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemap!, { force: options.force }),
+    );
+  }
+
   await Promise.all([
-    writeGeneratedFile(path.join(outputRoot, "sitemap.xml"), sitemap, {
-      force: options.force,
-    }),
+    ...sitemapWrites,
     writeGeneratedFile(path.join(outputRoot, "robots.txt"), robots, {
       force: options.force,
     }),
     writeGeneratedFile(path.join(technicalRoot, "schema.json"), `${JSON.stringify(schema, null, 2)}\n`, {
       force: options.force,
     }),
+    writeGeneratedFile(
+      path.join(technicalRoot, "breadcrumbs.json"),
+      `${JSON.stringify(breadcrumbs, null, 2)}\n`,
+      { force: options.force },
+    ),
     writeGeneratedFile(
       path.join(technicalRoot, "internal-links.json"),
       `${JSON.stringify(internalLinks, null, 2)}\n`,
@@ -288,8 +400,13 @@ export async function technical(options: TechnicalOptions): Promise<void> {
       : Promise.resolve(),
   ]);
 
-  console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  if (sitemapIndexResult) {
+    console.log(`sitemap-index.xml -> ${sitemapIndexResult.sitemaps.length} sitemaps (${options.entities.length} URLs)`);
+  } else {
+    console.log(`sitemap.xml -> ${options.entities.length} URLs`);
+  }
   console.log(`schema.json -> ${schema.length} records`);
+  console.log(`breadcrumbs.json -> ${breadcrumbs.length} records`);
   console.log(`faq-schema.json -> ${faqSchemas.length} FAQ pages`);
   console.log(`internal-links.json -> ${internalLinks.length} nodes`);
   console.log(`hreflang.txt -> ${options.entities.length} entity scaffolds`);

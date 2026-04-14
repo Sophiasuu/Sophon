@@ -1,7 +1,7 @@
 ---
 name: technical
-description: "Generate technical SEO assets: sitemap.xml, robots.txt, per-entity schema markup, internal link graph, and hreflang scaffold. Use when the user wants to add or update sitemap, robots, structured data, internal linking, or multilingual hreflang tags."
-argument-hint: "[--site <url>]"
+description: "Generate technical SEO assets: sitemap.xml (with sitemap index for large sites), robots.txt, per-entity schema markup (BreadcrumbList, AggregateRating), configurable internal link graph, and hreflang scaffold. Use when the user wants to add or update sitemap, robots, structured data, internal linking, or multilingual hreflang tags."
+argument-hint: "[--site <url>] [--max-links <n>]"
 user-invocable: true
 ---
 
@@ -25,15 +25,19 @@ npx @sophonn/sophon technical --site https://example.com
 
 # Custom output root (default: public/)
 npx @sophonn/sophon technical --site https://example.com --technical-output ./static
+
+# Custom internal link count per entity (default: 5)
+npx @sophonn/sophon technical --site https://example.com --max-links 8
 ```
 
 ## Outputs
 
 | Asset | Default path |
-|-------|-------------|
-| Sitemap | `public/sitemap.xml` |
+|-------|-----------|
+| Sitemap | `public/sitemap.xml` (auto-splits into sitemap index + child sitemaps for >45K URLs) |
 | Robots | `public/robots.txt` |
 | Schema records | `public/sophon/schema.json` |
+| Breadcrumb schema | `public/sophon/breadcrumbs.json` |
 | Internal link graph | `public/sophon/internal-links.json` |
 | Hreflang scaffold | `public/sophon/hreflang.txt` |
 
@@ -47,11 +51,13 @@ If the host project already owns sitemap or robots generation, **merge or adapt*
 
 ## What Gets Generated
 
-**Sitemap**: One entry per entity with `lastmod` set to today's date, `changefreq: weekly`, and `priority: 0.7`.
+**Sitemap**: One entry per entity with `lastmod` set from `enrichedAt` → `generatedAt` → today (in precedence order), `changefreq` and `priority` based on intent classification. Automatically generates a sitemap index with 45K-URL child sitemaps when entity count exceeds the threshold.
 
-**Schema**: Type is inferred heuristically from entity tags (e.g., `SoftwareApplication`, `Product`, `WebPage`). Not hard-coded to `Article`.
+**Schema**: Type is inferred heuristically from entity tags (e.g., `SoftwareApplication`, `Product`, `WebPage`). Entities with `ratingValue` and `ratingCount` attributes get automatic `AggregateRating` markup. Not hard-coded to `Article`.
 
-**Internal links**: Entities are linked by shared seed keyword and tags, not by array position. Up to 3 related entities per node.
+**Breadcrumbs**: BreadcrumbList schema per entity with Home → Entity path. Written to `public/sophon/breadcrumbs.json`.
+
+**Internal links**: Entities are linked by shared seed keyword, tag overlap, intent affinity, and word overlap — not by array position. Configurable via `--max-links` (default 5).
 
 **Hreflang scaffold**: Generates `public/sophon/hreflang.txt` with documented `<link rel="alternate" hreflang="...">` examples for every entity. Copy the relevant blocks into your page `<head>` when adding language or region variants. This is a scaffold — it does not auto-inject into pages.
 
@@ -66,6 +72,7 @@ await technical({
   entities: result.entities,
   site: "https://example.com",
   output: "public",
+  maxLinks: 8, // optional, default 5
 });
 ```
 
