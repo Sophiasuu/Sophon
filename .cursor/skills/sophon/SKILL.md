@@ -1,6 +1,6 @@
 ---
 name: sophon
-description: "Master context for Sophon — an agentic programmatic SEO toolkit. Teaches the framework, entity model, adapter system, and operating rules. Invoke this skill before using discover, generate, technical, enrich, or run so you have the full context. Call with 'teach' to run the onboarding interview and create .sophon.md."
+description: "Master context for Sophon — an agentic programmatic SEO toolkit. Teaches the framework, entity model, adapter system, and operating rules. Invoke this skill before using discover, generate, technical, enrich, optimize, or run so you have the full context. Call with 'teach' to run the onboarding interview and create .sophon.md."
 ---
 
 Sophon is an open-source programmatic SEO toolkit that turns a seed keyword or entity list into framework-specific pages, sitemaps, schema markup, internal linking data, and optional AI enrichment outputs.
@@ -121,9 +121,14 @@ Sophon breaks its workflow into composable skills. Each step corresponds to a CL
 | Skill | CLI | Purpose |
 |-------|-----|---------|
 | `discover` | `sophon discover` | Find entities from seed or CSV |
-| `generate` | `sophon generate` | Generate framework pages |
-| `technical` | `sophon technical` | Sitemap, robots, schema, links |
-| `enrich` | `sophon enrich` | AI-powered content enrichment |
+| `generate` | `sophon generate` | Generate framework pages with JSON-LD schema |
+| `technical` | `sophon technical` | Sitemap, robots, schema, FAQ schema, internal links |
+| `enrich` | `sophon enrich` | AI-powered content enrichment (concurrent, cached) |
+| `optimize` | `sophon optimize` | GSC-powered performance analysis and recommendations |
+| `blog` | `sophon blog` | Generate supporting blog outlines per entity |
+| `keywords` | `sophon keywords` | Keyword difficulty and opportunity analysis |
+| `quality` | `sophon quality` | Content quality scoring (readability, structure) |
+| `humanize` | `sophon humanize` | Remove AI-isms and mechanical patterns from text |
 | `run` | `sophon run` | Full pipeline |
 
 ## Operating Rules

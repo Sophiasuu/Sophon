@@ -27,7 +27,7 @@ const PLACEHOLDERS = [
   "__ENTITY_TAGS__",
   "__ENTITY_ATTRIBUTES__",
   "__ENTITY_SECTIONS__",
-  "__ENTITY_INTENT__",
+  "__ENTITY_YMYL_DISCLAIMER__",
 ];
 
 describe("nextjs adapter", () => {
@@ -44,6 +44,13 @@ describe("nextjs adapter", () => {
 
   it("contains SOPHON GENERATED marker", () => {
     expect(nextjs(makeOptions())).toContain("SOPHON GENERATED");
+  });
+
+  it("does not contain visible debug artifacts", () => {
+    const template = nextjs(makeOptions());
+    expect(template).not.toContain("Sophon generated page");
+    expect(template).not.toContain("JSON.stringify(entity.tags");
+    expect(template).not.toContain("JSON.stringify(entity.attributes");
   });
 
   it("contains canonical URL", () => {
@@ -129,10 +136,15 @@ describe("remix adapter", () => {
 });
 
 describe("sveltekit adapter", () => {
-  it("returns a string containing section and intent placeholders", () => {
+  it("returns a string containing section placeholder", () => {
     const template = sveltekit({ ...makeOptions(), framework: "sveltekit" });
     expect(template).toContain("__ENTITY_SECTIONS__");
-    expect(template).toContain("__ENTITY_INTENT__");
+  });
+
+  it("does not contain visible debug artifacts", () => {
+    const template = sveltekit({ ...makeOptions(), framework: "sveltekit" });
+    expect(template).not.toContain("Sophon intent:");
+    expect(template).not.toContain("<pre>");
   });
 
   it("uses data prop instead of inline entity values", () => {

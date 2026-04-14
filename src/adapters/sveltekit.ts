@@ -16,33 +16,34 @@ export function sveltekit(_options: GenerateOptions): string {
       tags: string[];
       attributes: Record<string, string>;
     };
+    siteUrl: string;
+    jsonLd: Record<string, unknown>;
   };
 </script>
 
 <svelte:head>
   <title>{data.entity.title}</title>
   <meta name="description" content={data.entity.description} />
-  <link rel="canonical" href={\`/\${data.entity.slug}\`} />
+  <link rel="canonical" href={\`\${data.siteUrl}/\${data.entity.slug}\`} />
   <!-- Open Graph -->
   <meta property="og:title" content={data.entity.title} />
   <meta property="og:description" content={data.entity.description} />
-  <meta property="og:url" content={\`/\${data.entity.slug}\`} />
+  <meta property="og:url" content={\`\${data.siteUrl}/\${data.entity.slug}\`} />
   <meta property="og:type" content="website" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={data.entity.title} />
   <meta name="twitter:description" content={data.entity.description} />
+  <!-- JSON-LD Schema -->
+  {@html \`<script type="application/ld+json">\${JSON.stringify(data.jsonLd)}</script>\`}
 </svelte:head>
 
 <main>
   <h1>{data.entity.title}</h1>
   <p>{data.entity.description}</p>
 
-  <!-- Sophon intent: __ENTITY_INTENT__ -->
-
+__ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
-
-  <pre>{JSON.stringify({ tags: data.entity.tags, attributes: data.entity.attributes }, null, 2)}</pre>
 </main>
 `;
 }

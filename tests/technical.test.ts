@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildSitemap, buildRobots, buildSchema, buildInternalLinks, buildHreflang } from "../src/core/technical";
-import type { EntityRecord } from "../src/types";
+import { buildSitemap, buildRobots, buildSchema, buildInternalLinks, buildHreflang, buildFaqSchema } from "../src/core/technical";
+import type { EntityRecord, EnrichedFaq } from "../src/types";
 
 function makeEntity(name: string, slug: string, tags: string[] = []): EntityRecord {
   return {
@@ -42,8 +42,8 @@ describe("buildSitemap", () => {
   it("includes lastmod, changefreq, priority", () => {
     const sitemap = buildSitemap("https://example.com", entities);
     expect(sitemap).toContain("<lastmod>");
-    expect(sitemap).toContain("<changefreq>weekly</changefreq>");
-    expect(sitemap).toContain("<priority>0.7</priority>");
+    expect(sitemap).toContain("<changefreq>");
+    expect(sitemap).toMatch(/<priority>0\.\d<\/priority>/);
   });
 });
 
@@ -86,14 +86,18 @@ describe("buildInternalLinks", () => {
   it("does not link entity to itself", () => {
     const links = buildInternalLinks(entities);
     for (const link of links) {
-      expect(link.relatedEntities).not.toContain(link.entity);
+      const slugs = link.relatedEntities.map((r) => r.slug);
+      expect(slugs).not.toContain(link.entity);
     }
   });
 
-  it("scores by shared tags", () => {
+  it("scores by shared tags and intent affinity", () => {
     const links = buildInternalLinks(entities);
     const pricingLinks = links.find((l) => l.entity === "crm-pricing");
     expect(pricingLinks?.relatedEntities.length).toBeGreaterThan(0);
+    // Each related entity now has a reason
+    expect(pricingLinks?.relatedEntities[0]).toHaveProperty("slug");
+    expect(pricingLinks?.relatedEntities[0]).toHaveProperty("reason");
   });
 });
 
@@ -108,5 +112,37 @@ describe("buildHreflang", () => {
   it("reports total entity count", () => {
     const hreflang = buildHreflang("https://example.com", entities);
     expect(hreflang).toContain(`Total entities requiring hreflang coverage: ${entities.length}`);
+  });
+});
+
+describe("buildFaqSchema", () => {
+  const enrichedFaqs: EnrichedFaq[] = [
+    { question: "What is CRM Pricing?", answer: "CRM pricing covers the various subscription tiers and costs for customer relationship management platforms." },
+    { question: "How do I choose a CRM?", answer: "Evaluate your team size, budget, and required integrations to pick the right CRM for your business." },
+  ];
+
+  it("returns null without enriched FAQs", () => {
+    const faq = buildFaqSchema(entities[0]);
+    expect(faq).toBeNull();
+  });
+
+  it("returns null with empty enriched FAQs array", () => {
+    const faq = buildFaqSchema(entities[0], []);
+    expect(faq).toBeNull();
+  });
+
+  it("generates FAQ schema from enriched FAQs", () => {
+    const faq = buildFaqSchema(entities[0], enrichedFaqs);
+    expect(faq).not.toBeNull();
+    expect(faq?.["@type"]).toBe("FAQPage");
+    expect(faq?.mainEntity).toHaveLength(2);
+  });
+
+  it("FAQ entries have Question type with real answers", () => {
+    const faq = buildFaqSchema(entities[0], enrichedFaqs)!;
+    expect(faq.mainEntity[0]["@type"]).toBe("Question");
+    expect(faq.mainEntity[0].name).toBe("What is CRM Pricing?");
+    expect(faq.mainEntity[0].acceptedAnswer["@type"]).toBe("Answer");
+    expect(faq.mainEntity[0].acceptedAnswer.text).toContain("subscription tiers");
   });
 });

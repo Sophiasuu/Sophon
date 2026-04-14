@@ -1,11 +1,14 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import Anthropic from "@anthropic-ai/sdk";
 
 import { writeGeneratedFile } from "./generate";
+import { humanizeContent } from "./humanize";
 import type { EnrichOptions, EntityRecord } from "../types";
 
 const MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_CONCURRENCY = 3;
 
 const SYSTEM_PROMPT = `You are a programmatic SEO content generator.
 Generate structured page content for the provided entity.
@@ -69,8 +72,36 @@ export async function enrich(options: EnrichOptions): Promise<void> {
 
   const outputRoot = options.output ?? path.join("data", "enriched");
   const client = new Anthropic({ apiKey });
+  const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
 
+  // Filter out already-enriched entities (cache check)
+  const toEnrich: EntityRecord[] = [];
   for (const entity of options.entities) {
+    const outputPath = path.join(outputRoot, entity.slug, "content.json");
+    if (!options.force) {
+      try {
+        await readFile(outputPath, "utf8");
+        console.log(`Cached: ${entity.slug} (use --force to re-enrich)`);
+        continue;
+      } catch {
+        // File doesn't exist, needs enrichment
+      }
+    }
+    toEnrich.push(entity);
+  }
+
+  if (toEnrich.length === 0) {
+    console.log("All entities already enriched. Use --force to re-enrich.");
+    return;
+  }
+
+  console.log(`Enriching ${toEnrich.length} entities (${options.entities.length - toEnrich.length} cached, concurrency: ${concurrency})...`);
+
+  // Process in concurrent batches
+  let completed = 0;
+  let failed = 0;
+
+  async function enrichOne(entity: EntityRecord): Promise<void> {
     try {
       const response = await client.messages.create({
         model: MODEL,
@@ -85,13 +116,41 @@ export async function enrich(options: EnrichOptions): Promise<void> {
         ],
       });
 
-      const parsed = JSON.parse(messageText(response as AnthropicMessageResponse));
+      const raw = JSON.parse(messageText(response as AnthropicMessageResponse));
+
+      // Apply humanization to content strings
+      const humanized = humanizeContent(raw);
+
       await writeGeneratedFile(
         path.join(outputRoot, entity.slug, "content.json"),
-        `${JSON.stringify(parsed, null, 2)}\n`,
+        `${JSON.stringify(humanized, null, 2)}\n`,
+        { force: options.force },
       );
+      completed++;
+      console.log(`  ✓ ${entity.slug} (${completed}/${toEnrich.length})`);
     } catch (error) {
-      console.error(`Enrichment failed for ${entity.slug}:`, error instanceof Error ? error.message : error);
+      failed++;
+      console.error(`  ✗ ${entity.slug}:`, error instanceof Error ? error.message : error);
     }
   }
+
+  // Concurrency pool
+  const pool: Promise<void>[] = [];
+  for (const entity of toEnrich) {
+    const promise = enrichOne(entity);
+    pool.push(promise);
+
+    if (pool.length >= concurrency) {
+      await Promise.race(pool);
+      // Remove settled promises
+      for (let i = pool.length - 1; i >= 0; i--) {
+        const settled = await Promise.race([pool[i].then(() => true), Promise.resolve(false)]);
+        if (settled) pool.splice(i, 1);
+      }
+    }
+  }
+
+  await Promise.all(pool);
+
+  console.log(`Enrichment complete: ${completed} succeeded, ${failed} failed`);
 }

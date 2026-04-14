@@ -41,6 +41,7 @@ Use Sophon as a controlled scaffolding layer for large SEO surfaces, while keepi
 5. **Enrich ✨** — use Claude to fill TODO sections with grounded, structured content
 6. **Score 📊** — check entity health (metadata completeness, intent confidence, slug quality) with A-F grades
 7. **Audit ✅** — scan existing SEO implementation and get a weighted score with letter grade
+8. **Optimize 🚀** — pull real GSC performance data, detect underperforming pages, and generate prioritized recommendations
 
 ## Repository Structure 📁
 
@@ -204,6 +205,37 @@ npx @sophonn/sophon score
 
 Evaluates each entity across 7 checks (title, description, tags, attributes, slug quality, intent confidence, name specificity) and assigns a score out of 100 with a letter grade. Low-scoring entities are flagged for attention. Writes results to `data/scores.json`.
 
+### 10. Optimize with GSC data 🚀
+
+```bash
+npx @sophonn/sophon optimize --site https://example.com
+```
+
+Pulls real performance data from Google Search Console, maps it to your Sophon entities, and generates a prioritized optimization report.
+
+| Flag | Description |
+|------|-------------|
+| `--site` | **(required)** GSC property URL |
+| `--limit` | Max pages to fetch (default: 500) |
+| `--auto-fix` | Apply safe auto-fixes to enriched content |
+| `--access-token` | GSC OAuth token (or set `GSC_ACCESS_TOKEN`) |
+| `--output` | Report path (default: `data/optimization-report.json`) |
+
+Detects issues:
+
+| Pattern | Issue |
+|---------|-------|
+| High impressions + low CTR | Weak title/meta description |
+| Position 8–20 | Striking distance — needs content depth |
+| Position >20 | Poor ranking — significant content gap |
+| Low impressions | Keyword mismatch or not indexed |
+
+Each entity gets an optimization score (0–100) and priority level (critical/high/medium/low). Recommendations are typed as `meta`, `content`, `structure`, or `linking` with actionable steps and reasoning.
+
+With `--auto-fix`, Sophon inserts `[OPTIMIZE]` TODO markers into enriched content files — it never overwrites existing content or modifies non-Sophon files.
+
+Writes results to `data/optimization-report.json`.
+
 ### Safeproof behavior (skip if already implemented) 🛡️
 
 Generation and technical commands now skip existing non-Sophon files by default and print a reminder that something is already in place.
@@ -226,6 +258,7 @@ import {
   enrich,
   audit,
   scoreEntities,
+  optimize,
   classifyIntent,
 } from "@sophonn/sophon";
 
@@ -258,6 +291,12 @@ const scores = scoreEntities(result.entities);
 
 const intent = classifyIntent("best payroll software pricing");
 // intent.intent → "commercial", intent.confidence → 0.9
+
+const report = await optimize({
+  site: "https://example.com",
+  entities: result.entities,
+});
+// report.summary, report.entities[0].recommendations
 ```
 
 ## Agent Skills 🤖
@@ -271,7 +310,7 @@ Sophon ships a multi-provider agent skill system. Skills are defined once in `so
 
 Six skills: `sophon` (master context + `teach`), `discover`, `generate`, `technical`, `enrich`, `run`.
 
-All step skills enforce a preparation check: confirm instructions exist → check `.sophon.md` → run `sophon teach` if missing.
+**Plus** the `optimize` skill for GSC-powered performance analysis and recommendations.
 
 Typical prompt:
 
@@ -299,12 +338,14 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - AI content enrichment via Claude (no-hallucination prompt, TODO markers for missing data)
 - **Weighted SEO audit** with 0-100 score and A-F grade
 - **Entity health scoring** (metadata completeness, intent confidence, slug quality)
+- **GSC-powered optimization** — fetch real performance data, detect underperformance, generate typed recommendations
+- **Auto-fix system** — safely insert optimization TODOs into enriched content
 - Shared intent classification engine reusable via programmatic API
 - `sophon teach` onboarding flow that writes project context to `.sophon.md`
 - Multi-provider agent skill system (Claude, Cursor, Codex, VS Code)
 - Output path traversal protection (all `--output` flags validated against cwd)
 - XSS-safe template hydration (`<`/`>` escaped in entity values)
-- 145 tests across 12 test files (vitest)
+- 173 tests across 13 test files (vitest)
 
 **What Sophon does not do ❌:**
 
@@ -316,6 +357,7 @@ Use Sophon to add a programmatic SEO surface to this Next.js app for the niche "
 - Deployment or CI integration
 - Analytics or tracking tag injection
 - Core Web Vitals or page speed optimization
+- Google Analytics integration (bounce rate, session time) — planned
 - CMS sync (Contentful, Sanity, etc.)
 - Content freshness management or scheduled re-enrichment
 - A/B testing or variant generation

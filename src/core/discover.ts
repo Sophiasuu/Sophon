@@ -21,21 +21,72 @@ function buildEntityId(name: string): string {
   return stableHash(slugify(name));
 }
 
-function buildTitle(name: string, source: DiscoverMode, titleTemplate?: string): string {
-  const fallbackTemplate =
-    source === "seed"
-      ? "{name} pages and comparisons"
-      : "{name} overview and entity details";
+// Title templates with keyword-first placement and power words.
+// Selected based on entity name pattern to produce varied, SEO-friendly titles.
+const TITLE_TEMPLATES: Array<{ pattern: RegExp; template: string }> = [
+  { pattern: /\bpricing\b/i, template: "{name}: Plans, Costs & What to Expect" },
+  { pattern: /\balternatives\b/i, template: "Top {name} Worth Trying in {year}" },
+  { pattern: /\bcomparison\b|\bvs\b/i, template: "{name}: Features, Pros & Cons" },
+  { pattern: /\bbest\b/i, template: "{name}: Reviewed and Ranked ({year})" },
+  { pattern: /\bfor\s/i, template: "{name}: Complete Guide ({year})" },
+  { pattern: /\bhow to\b/i, template: "{name} - Step by Step" },
+  { pattern: /\bguide\b|\bchecklist\b/i, template: "{name} ({year} Edition)" },
+];
 
-  return (titleTemplate ?? fallbackTemplate).replaceAll("{name}", name);
+const GENERIC_TITLES = [
+  "{name}: What You Need to Know ({year})",
+  "{name} - A Practical Overview ({year})",
+  "{name}: Guide and Key Insights ({year})",
+];
+
+function titleCase(text: string): string {
+  const minorWords = new Set(["a", "an", "the", "and", "but", "or", "for", "in", "on", "at", "to", "of", "by", "is"]);
+  return text
+    .split(/\s+/)
+    .map((word, index) => {
+      if (index === 0 || !minorWords.has(word.toLowerCase())) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+      return word.toLowerCase();
+    })
+    .join(" ");
 }
 
-function buildDescription(name: string, source: DiscoverMode, seedKeyword?: string): string {
-  if (source === "seed" && seedKeyword) {
-    return `Programmatic SEO placeholder content for ${name}, expanded from the seed keyword ${seedKeyword}.`;
+function buildTitle(name: string, _source: DiscoverMode, titleTemplate?: string): string {
+  if (titleTemplate) {
+    return titleTemplate.replaceAll("{name}", titleCase(name));
   }
 
-  return `Programmatic SEO placeholder content for ${name}.`;
+  const year = new Date().getFullYear().toString();
+  const matched = TITLE_TEMPLATES.find((t) => t.pattern.test(name));
+  const template = matched?.template ?? GENERIC_TITLES[name.length % GENERIC_TITLES.length];
+
+  let title = template.replaceAll("{name}", titleCase(name)).replaceAll("{year}", year);
+
+  // Truncate to ~60 chars cleanly if needed
+  if (title.length > 65) {
+    title = title.slice(0, 60).replace(/\s+\S*$/, "...");
+  }
+
+  return title;
+}
+
+function buildDescription(name: string, _source: DiscoverMode, seedKeyword?: string): string {
+  const keyword = seedKeyword ? ` ${seedKeyword}` : "";
+  const descriptions = [
+    `Compare ${name} options and find the right${keyword} fit for your needs. Features, pricing, and honest reviews.`,
+    `Everything you need to know about ${name}. Unbiased breakdown of features, use cases, and top picks for${keyword}.`,
+    `Looking for the best ${name}? We cover key differences, real pros and cons, and practical recommendations.`,
+  ];
+
+  let desc = descriptions[name.length % descriptions.length];
+
+  // Trim to 155 chars cleanly
+  if (desc.length > 160) {
+    desc = desc.slice(0, 155).replace(/\s+\S*$/, "...");
+  }
+
+  return desc;
 }
 
 function toEntity(

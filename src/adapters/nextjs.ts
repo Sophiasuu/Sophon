@@ -17,16 +17,20 @@ const entity = {
   attributes: __ENTITY_ATTRIBUTES__,
 } as const;
 
+const siteUrl = __SITE_URL__;
+
+const jsonLd = __ENTITY_SCHEMA_JSONLD__;
+
 export const metadata: Metadata = {
   title: entity.title,
   description: entity.description,
   alternates: {
-    canonical: "/" + entity.slug,
+    canonical: siteUrl + "/" + entity.slug,
   },
   openGraph: {
     title: entity.title,
     description: entity.description,
-    url: "/" + entity.slug,
+    url: siteUrl + "/" + entity.slug,
     type: "website",
   },
   twitter: {
@@ -40,29 +44,21 @@ export const dynamic = "force-static";
 
 export default function SophonPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-16">
-      <section className="space-y-4">
-        <p className="text-sm uppercase tracking-[0.2em] text-neutral-500">Sophon generated page · __ENTITY_INTENT__ intent</p>
+    <main className="mx-auto min-h-screen max-w-3xl px-6 py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <header className="space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight text-neutral-950">{entity.title}</h1>
         <p className="max-w-3xl text-base leading-7 text-neutral-700">{entity.description}</p>
-      </section>
+      </header>
 
-      <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <article className="space-y-8 rounded-3xl border border-neutral-200 p-8">
+__ENTITY_YMYL_DISCLAIMER__
+      <section className="mt-10">
+        <article className="space-y-8">
 __ENTITY_SECTIONS__
         </article>
-
-        <aside className="space-y-6 rounded-3xl bg-neutral-50 p-8">
-          <div className="space-y-3">
-            <h2 className="text-lg font-medium text-neutral-950">Tags</h2>
-            <pre className="overflow-x-auto rounded-2xl bg-white p-4 text-sm text-neutral-700">{JSON.stringify(entity.tags, null, 2)}</pre>
-          </div>
-
-          <div className="space-y-3">
-            <h2 className="text-lg font-medium text-neutral-950">Attributes</h2>
-            <pre className="overflow-x-auto rounded-2xl bg-white p-4 text-sm text-neutral-700">{JSON.stringify(entity.attributes, null, 2)}</pre>
-          </div>
-        </aside>
       </section>
     </main>
   );

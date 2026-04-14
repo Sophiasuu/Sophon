@@ -14,6 +14,11 @@ import { audit } from "./core/audit";
 import { propose } from "./core/propose";
 import { scoreEntities } from "./core/score";
 import { teach } from "./core/teach";
+import { optimize } from "./core/optimize";
+import { blog } from "./core/blog";
+import { analyzeKeywords } from "./core/keywords";
+import { scoreAllContent } from "./core/quality";
+import { humanize } from "./core/humanize";
 import { assertSafePath } from "./core/utils";
 import type { DiscoverResult, Framework } from "./types";
 
@@ -59,6 +64,10 @@ function parseCli() {
       template: { type: "string" },
       site: { type: "string" },
       "title-template": { type: "string" },
+      "auto-fix": { type: "boolean" },
+      "access-token": { type: "string" },
+      "posts-per-entity": { type: "string" },
+      concurrency: { type: "string" },
       force: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
@@ -243,6 +252,7 @@ async function generateCommand(values: ReturnType<typeof parseCli>["values"]): P
     output: safeOutput(asString(values["generate-output"]) ?? asString(values.output)) ?? config?.pagesOutput,
     template: asString(values.template),
     force: Boolean(values.force),
+    site: asString(values.site),
   });
 }
 
@@ -272,6 +282,8 @@ async function enrichCommand(values: ReturnType<typeof parseCli>["values"]): Pro
   await enrich({
     entities: payload.entities,
     output: safeOutput(asString(values["enrich-output"]) ?? asString(values.output)) ?? config?.enrichOutput,
+    concurrency: Number.parseInt(asString(values.concurrency) ?? "", 10) || undefined,
+    force: Boolean(values.force),
   });
 }
 
@@ -332,6 +344,26 @@ async function auditCommand(): Promise<void> {
   await audit();
 }
 
+async function optimizeCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+  const site = asString(values.site);
+
+  if (!site) {
+    throw new Error("--site is required for the optimize command.");
+  }
+
+  await optimize({
+    site,
+    entities: payload.entities,
+    limit: Number.parseInt(asString(values.limit) ?? "", 10) || undefined,
+    autoFix: Boolean(values["auto-fix"]),
+    output: safeOutput(asString(values.output)) ?? path.join("data", "optimization-report.json"),
+    accessToken: asString(values["access-token"]),
+  });
+}
+
 async function scoreCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
   const config = await readConfig();
   const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
@@ -356,6 +388,87 @@ async function scoreCommand(values: ReturnType<typeof parseCli>["values"]): Prom
   }
 }
 
+async function blogCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+
+  await blog({
+    entities: payload.entities,
+    output: safeOutput(asString(values.output)) ?? path.join("data", "blog"),
+    postsPerEntity: Number.parseInt(asString(values["posts-per-entity"]) ?? "", 10) || undefined,
+  });
+}
+
+async function keywordsCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+
+  const results = analyzeKeywords(payload.entities);
+
+  const outputPath = safeOutput(asString(values.output)) ?? path.join("data", "keywords.json");
+  await writeGeneratedFile(outputPath, `${JSON.stringify(results, null, 2)}\n`, {
+    force: Boolean(values.force),
+  });
+
+  console.log(`Analyzed ${results.length} keywords`);
+  const top = results.slice(0, 5);
+  for (const kw of top) {
+    console.log(`  ${kw.keyword}: vol ~${kw.estimatedMonthlyVolume}, difficulty ${kw.difficulty}, opportunity ${kw.opportunityScore}`);
+  }
+}
+
+async function qualityCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const config = await readConfig();
+  const entitiesPath = asString(values.entities) ?? config?.entitiesPath ?? path.join("data", "entities.json");
+  const payload = await loadDiscoverResult(entitiesPath);
+
+  // Build content map from enriched files
+  const contentDir = safeOutput(asString(values.output)) ?? config?.enrichOutput ?? path.join("data", "enriched");
+  const contentMap = new Map<string, string>();
+
+  for (const entity of payload.entities) {
+    try {
+      const raw = await readFile(path.join(contentDir, entity.slug, "content.json"), "utf8");
+      contentMap.set(entity.slug, raw);
+    } catch {
+      // No enriched content yet
+    }
+  }
+
+  const report = scoreAllContent(payload.entities, contentMap);
+
+  const reportPath = safeOutput(asString(values.output)) ?? path.join("data", "quality-report.json");
+  await writeGeneratedFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, {
+    force: Boolean(values.force),
+  });
+
+  console.log(`Content quality: ${report.averageScore}/100 (${report.averageGrade})`);
+  console.log(`Scored ${report.entityCount} entities`);
+
+  const weak = report.entities.filter((e) => e.overallScore < 50);
+  if (weak.length > 0) {
+    console.log(`\nWeak content (${weak.length}):`);
+    for (const entity of weak.slice(0, 10)) {
+      console.log(`  ${entity.slug}: ${entity.overallScore}/100 (${entity.grade})`);
+    }
+  }
+}
+
+async function humanizeCommand(values: ReturnType<typeof parseCli>["values"]): Promise<void> {
+  const inputPath = asString(values.entities) ?? asString(values.output);
+
+  if (!inputPath) {
+    throw new Error("Provide a file path: sophon humanize --entities <file>");
+  }
+
+  const raw = await readFile(inputPath, "utf8");
+  const result = humanize(raw);
+
+  console.log(result);
+}
+
 function printHelp(): void {
   console.log(`sophon <command>
 
@@ -364,12 +477,17 @@ Commands:
   sophon teach
   sophon discover --seed "keyword" | --csv ./file.csv
   sophon propose --seed "keyword"
-  sophon generate --framework nextjs
+  sophon generate --framework nextjs [--site https://example.com]
   sophon technical --site https://example.com
-  sophon enrich
+  sophon enrich [--concurrency 3] [--force]
   sophon run --seed "keyword" --framework nextjs --site https://example.com
   sophon audit
   sophon score
+  sophon optimize --site https://example.com [--limit 50] [--auto-fix] [--access-token TOKEN]
+  sophon blog [--posts-per-entity 2]
+  sophon keywords
+  sophon quality
+  sophon humanize --entities <file>
 
 Common flags:
   --entities <path>
@@ -378,7 +496,9 @@ Common flags:
   --generate-output <path>
   --technical-output <path>
   --enrich-output <path>
+  --site <url>
   --limit <number>
+  --concurrency <number>
   --force`);
 }
 
@@ -421,6 +541,21 @@ async function main(): Promise<void> {
       return;
     case "score":
       await scoreCommand(parsed.values);
+      return;
+    case "optimize":
+      await optimizeCommand(parsed.values);
+      return;
+    case "blog":
+      await blogCommand(parsed.values);
+      return;
+    case "keywords":
+      await keywordsCommand(parsed.values);
+      return;
+    case "quality":
+      await qualityCommand(parsed.values);
+      return;
+    case "humanize":
+      await humanizeCommand(parsed.values);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

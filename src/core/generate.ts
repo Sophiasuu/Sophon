@@ -10,7 +10,10 @@ import { sveltekit } from "../adapters/sveltekit";
 import { classifyIntent } from "./intent";
 import { getSections, renderSections } from "./sections";
 import { safeJsonStringify } from "./utils";
-import type { EntityRecord, Framework, GenerateOptions, GenerateSummary } from "../types";
+import type { EnrichedContent, EntityRecord, Framework, GenerateOptions, GenerateSummary } from "../types";
+
+// Default site URL when none is provided
+const DEFAULT_SITE_URL = "https://example.com";
 
 const YMYL_TERMS = [
   "health",
@@ -29,6 +32,111 @@ const YMYL_TERMS = [
 const TODO_SECTIONS_PER_PAGE = 4;
 
 type AdapterGenerator = (options: GenerateOptions) => string;
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const YMYL_DISCLAIMER_TEXT = "This content is for informational purposes only and does not constitute professional advice. Consult a qualified professional before making any decisions based on this information.";
+
+export function renderYmylDisclaimer(framework: Framework, entity: EntityRecord): string {
+  if (!isYmylEntity(entity)) return "";
+
+  const indentMap: Record<Framework, number> = {
+    nextjs: 6,
+    sveltekit: 0,
+    remix: 6,
+    astro: 6,
+    nuxt: 4,
+  };
+
+  const indent = indentMap[framework];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const useTailwind = framework === "nextjs";
+
+  if (useTailwind) {
+    return [
+      `${pad}<aside role="note" aria-label="Disclaimer" className="rounded-xl border border-amber-300 bg-amber-50 p-4">`,
+      `${inner}<p className="text-sm text-amber-900">`,
+      `${inner}  <strong>Disclaimer:</strong> ${YMYL_DISCLAIMER_TEXT}`,
+      `${inner}</p>`,
+      `${pad}</aside>`,
+    ].join("\n");
+  }
+
+  return [
+    `${pad}<aside role="note" aria-label="Disclaimer">`,
+    `${inner}<p>`,
+    `${inner}  <strong>Disclaimer:</strong> ${YMYL_DISCLAIMER_TEXT}`,
+    `${inner}</p>`,
+    `${pad}</aside>`,
+  ].join("\n");
+}
+
+export async function loadEnrichedContent(slug: string, enrichDir?: string): Promise<EnrichedContent | null> {
+  const dir = enrichDir ?? path.join("data", "enriched");
+  try {
+    const raw = await readFile(path.join(dir, slug, "content.json"), "utf8");
+    return JSON.parse(raw) as EnrichedContent;
+  } catch {
+    return null;
+  }
+}
+
+function renderEnrichedContent(framework: Framework, content: EnrichedContent["content"]): string {
+  const useTailwind = framework === "nextjs";
+  const indentMap: Record<Framework, { indent: number; gap: string }> = {
+    nextjs: { indent: 10, gap: "\n\n" },
+    sveltekit: { indent: 2, gap: "\n\n" },
+    remix: { indent: 6, gap: "\n" },
+    astro: { indent: 6, gap: "\n" },
+    nuxt: { indent: 4, gap: "\n" },
+  };
+
+  const { indent, gap } = indentMap[framework];
+  const pad = " ".repeat(indent);
+  const inner = " ".repeat(indent + 2);
+  const parts: string[] = [];
+
+  if (content.intro) {
+    parts.push(
+      useTailwind
+        ? `${pad}<section className="space-y-3">\n${inner}<p className="text-base leading-7 text-neutral-700">${escapeHtml(content.intro)}</p>\n${pad}</section>`
+        : `${pad}<section>\n${inner}<p>${escapeHtml(content.intro)}</p>\n${pad}</section>`,
+    );
+  }
+
+  for (const section of content.sections) {
+    parts.push(
+      useTailwind
+        ? `${pad}<section className="space-y-3 rounded-3xl bg-amber-50 p-6">\n${inner}<h2 className="text-xl font-medium text-neutral-950">${escapeHtml(section.heading)}</h2>\n${inner}<p className="text-neutral-700">${escapeHtml(section.body)}</p>\n${pad}</section>`
+        : `${pad}<section>\n${inner}<h2>${escapeHtml(section.heading)}</h2>\n${inner}<p>${escapeHtml(section.body)}</p>\n${pad}</section>`,
+    );
+  }
+
+  if (content.faqs && content.faqs.length > 0) {
+    const faqItems = content.faqs
+      .map((faq) =>
+        useTailwind
+          ? `${inner}  <dt className="font-medium text-neutral-950">${escapeHtml(faq.question)}</dt>\n${inner}  <dd className="text-neutral-700">${escapeHtml(faq.answer)}</dd>`
+          : `${inner}  <dt>${escapeHtml(faq.question)}</dt>\n${inner}  <dd>${escapeHtml(faq.answer)}</dd>`,
+      )
+      .join("\n");
+
+    parts.push(
+      useTailwind
+        ? `${pad}<section className="space-y-3">\n${inner}<h2 className="text-xl font-medium text-neutral-950">Frequently Asked Questions</h2>\n${inner}<dl className="space-y-4">\n${faqItems}\n${inner}</dl>\n${pad}</section>`
+        : `${pad}<section>\n${inner}<h2>Frequently Asked Questions</h2>\n${inner}<dl>\n${faqItems}\n${inner}</dl>\n${pad}</section>`,
+    );
+  }
+
+  return parts.join(gap);
+}
 
 const COMMENT_BLOCKS: Record<Framework, string> = {
   nextjs: [
@@ -107,28 +215,47 @@ export function isYmylEntity(entity: EntityRecord): boolean {
   return YMYL_TERMS.some((term) => haystack.includes(term));
 }
 
-export function buildHydrationMap(entity: EntityRecord): Record<string, string> {
+export function buildHydrationMap(entity: EntityRecord, siteUrl?: string, enriched?: EnrichedContent | null): Record<string, string> {
+  const resolvedSiteUrl = (siteUrl ?? DEFAULT_SITE_URL).replace(/\/$/, "");
+  const title = enriched?.seo?.title ?? entity.metadata.title ?? entity.name;
+  const description = enriched?.seo?.metaDescription ?? entity.metadata.description ?? `Explore ${entity.name}.`;
+  const schemaJsonLd = {
+    "@context": "https://schema.org",
+    "@type": enriched?.schema?.type ?? "WebPage",
+    name: title,
+    description,
+    url: `${resolvedSiteUrl}/${entity.slug}`,
+  };
+
   return {
     "__ENTITY_NAME__": safeJsonStringify(entity.name),
     "__ENTITY_SLUG__": safeJsonStringify(entity.slug),
-    "__ENTITY_TITLE__": safeJsonStringify(entity.metadata.title ?? entity.name),
-    "__ENTITY_DESCRIPTION__": safeJsonStringify(entity.metadata.description ?? `Explore ${entity.name}.`),
+    "__ENTITY_TITLE__": safeJsonStringify(title),
+    "__ENTITY_DESCRIPTION__": safeJsonStringify(description),
     "__ENTITY_TAGS__": safeJsonStringify(entity.metadata.tags ?? []),
     "__ENTITY_ATTRIBUTES__": safeJsonStringify(entity.metadata.attributes ?? {}),
+    "__SITE_URL__": safeJsonStringify(resolvedSiteUrl),
+    "__ENTITY_SCHEMA_JSONLD__": JSON.stringify(schemaJsonLd, null, 2),
   };
 }
 
-function hydrateTemplate(template: string, entity: EntityRecord, framework: Framework): string {
+function hydrateTemplate(template: string, entity: EntityRecord, framework: Framework, siteUrl?: string, enriched?: EnrichedContent | null): string {
   const intent = classifyIntent(entity.name).intent;
-  const sections = getSections(intent);
+
+  let sectionsHtml: string;
+  if (enriched?.content) {
+    sectionsHtml = renderEnrichedContent(framework, enriched.content);
+  } else {
+    sectionsHtml = renderSections(framework, getSections(intent));
+  }
 
   const replacements: Record<string, string> = {
-    ...buildHydrationMap(entity),
-    "__ENTITY_SECTIONS__": renderSections(framework, sections),
-    "__ENTITY_INTENT__": intent,
+    ...buildHydrationMap(entity, siteUrl, enriched),
+    "__ENTITY_SECTIONS__": sectionsHtml,
+    "__ENTITY_YMYL_DISCLAIMER__": renderYmylDisclaimer(framework, entity),
   };
 
-  return template.replace(/__ENTITY_[A-Z_]+__/g, (match) => {
+  return template.replace(/__(?:ENTITY|SITE)_[A-Z_]+__/g, (match) => {
     return Object.hasOwn(replacements, match) ? replacements[match] : match;
   });
 }
@@ -155,7 +282,7 @@ function buildMainPagePath(framework: Framework, outputRoot: string, slug: strin
   }
 }
 
-function buildAdditionalFiles(framework: Framework, outputRoot: string, entity: EntityRecord): Array<{ filePath: string; content: string }> {
+function buildAdditionalFiles(framework: Framework, outputRoot: string, entity: EntityRecord, siteUrl?: string, enriched?: EnrichedContent | null): Array<{ filePath: string; content: string }> {
   if (framework !== "sveltekit") {
     return [];
   }
@@ -163,7 +290,7 @@ function buildAdditionalFiles(framework: Framework, outputRoot: string, entity: 
   return [
     {
       filePath: path.join(outputRoot, entity.slug, "+page.ts"),
-      content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework),
+      content: hydrateTemplate(buildSvelteKitPageModule(), entity, framework, siteUrl, enriched),
     },
   ];
 }
@@ -212,6 +339,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
   const seenSlugs = new Set<string>();
   const warnings: string[] = [];
   let generated = 0;
+  let todosRemaining = 0;
 
   for (const entity of options.entities) {
     if (seenSlugs.has(entity.slug)) {
@@ -235,10 +363,13 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
       console.warn(warning);
     }
 
+    // Load enriched content if available
+    const enriched = await loadEnrichedContent(entity.slug);
+
     const template = customTemplate ?? buildFrameworkTemplate(options, entity);
     const pageContent = customTemplate
-      ? prependCommentBlock(options.framework, hydrateTemplate(template, entity, options.framework))
-      : hydrateTemplate(template, entity, options.framework);
+      ? prependCommentBlock(options.framework, hydrateTemplate(template, entity, options.framework, options.site, enriched))
+      : hydrateTemplate(template, entity, options.framework, options.site, enriched);
     const pagePath = buildMainPagePath(options.framework, outputRoot, entity.slug);
 
     const pageWritten = await writeGeneratedFile(pagePath, pageContent, {
@@ -250,12 +381,15 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
       continue;
     }
 
-    for (const file of buildAdditionalFiles(options.framework, outputRoot, entity)) {
+    for (const file of buildAdditionalFiles(options.framework, outputRoot, entity, options.site, enriched)) {
       await writeGeneratedFile(file.filePath, prependCommentBlock(options.framework, file.content), {
         force: options.force,
       });
     }
 
+    if (!enriched) {
+      todosRemaining += TODO_SECTIONS_PER_PAGE;
+    }
     generated += 1;
   }
 
@@ -263,7 +397,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateSummar
     total: options.entities.length,
     generated,
     warnings,
-    todos: generated * TODO_SECTIONS_PER_PAGE,
+    todos: todosRemaining,
   };
 
   console.log(`Total entities processed: ${summary.total}`);

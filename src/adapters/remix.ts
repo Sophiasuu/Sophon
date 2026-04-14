@@ -17,14 +17,17 @@ const entity = {
   attributes: __ENTITY_ATTRIBUTES__,
 } as const;
 
+const siteUrl = __SITE_URL__;
+const jsonLd = __ENTITY_SCHEMA_JSONLD__;
+
 export const meta: MetaFunction = () => {
   return [
     { title: entity.title },
     { name: "description", content: entity.description },
-    { tagName: "link", rel: "canonical", href: "/" + entity.slug },
+    { tagName: "link", rel: "canonical", href: siteUrl + "/" + entity.slug },
     { property: "og:title", content: entity.title },
     { property: "og:description", content: entity.description },
-    { property: "og:url", content: "/" + entity.slug },
+    { property: "og:url", content: siteUrl + "/" + entity.slug },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: entity.title },
@@ -35,11 +38,14 @@ export const meta: MetaFunction = () => {
 export default function SophonPage() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
-      {/* Sophon intent: __ENTITY_INTENT__ */}
+__ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
-      <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
     </main>
   );
 }

@@ -17,31 +17,45 @@ const INTENT_RULES: Array<{
 }> = [
   {
     intent: "commercial",
-    pattern: /pricing|cost|price|plans|quote|buy|purchase/i,
+    pattern: /pricing|cost|price|plans|quote|buy|purchase|deals?|coupon|discount|free trial/i,
     priority: 92,
     confidence: 0.9,
     reason: "Strong buying-intent modifier detected.",
   },
   {
     intent: "comparison",
-    pattern: /alternatives|comparison|vs\b|compare|versus/i,
+    pattern: /alternatives|comparison|vs\b|compare|versus|better than|switch(?:ing)?\s+from|replace|competitor/i,
     priority: 88,
     confidence: 0.86,
     reason: "Evaluation-intent modifier detected.",
   },
   {
     intent: "segmented",
-    pattern: /for startups|for small business|for enterprises|for agencies|for ecommerce|for teams/i,
+    pattern: /for (?:startups|small business|enterprises|agencies|ecommerce|teams|freelancers|developers|designers|nonprofits|education|healthcare|real estate|saas|b2b|b2c|beginners|remote teams|solopreneurs)/i,
     priority: 80,
     confidence: 0.82,
     reason: "Audience-segment modifier detected.",
   },
   {
+    intent: "commercial",
+    pattern: /\b(?:best|top\s+\d+|top)\b/i,
+    priority: 85,
+    confidence: 0.83,
+    reason: "Listicle/ranking modifier detected; strong commercial intent.",
+  },
+  {
     intent: "informational",
-    pattern: /what is|how to|guide|checklist|template|tutorial|examples/i,
+    pattern: /what is|how to|guide|checklist|template|tutorial|examples|definition|overview|explained|101|introduction|FAQ|learn/i,
     priority: 70,
     confidence: 0.75,
     reason: "Top-of-funnel informational modifier detected.",
+  },
+  {
+    intent: "informational",
+    pattern: /\breview(?:s|ed)?\b|\brating\b|\bopinion\b/i,
+    priority: 72,
+    confidence: 0.72,
+    reason: "Review/opinion modifier detected; informational with commercial lean.",
   },
 ];
 

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { generate, writeGeneratedFile, buildHydrationMap, isYmylEntity } from "../src/core/generate";
-import type { EntityRecord, GenerateOptions } from "../src/types";
+import { generate, writeGeneratedFile, buildHydrationMap, isYmylEntity, loadEnrichedContent, renderYmylDisclaimer } from "../src/core/generate";
+import type { EnrichedContent, EntityRecord, Framework, GenerateOptions } from "../src/types";
 
 function makeEntity(overrides: Partial<EntityRecord> = {}): EntityRecord {
   return {
@@ -293,5 +293,155 @@ describe("writeGeneratedFile", () => {
     await writeGeneratedFile(filePath, "content", { force: true });
 
     expect(await readFile(filePath, "utf8")).toBe("content");
+  });
+});
+
+const ENRICHED_FIXTURE: EnrichedContent = {
+  slug: "payroll-software-pricing",
+  seo: {
+    title: "Enriched Payroll Title",
+    metaDescription: "Enriched meta description for payroll software pricing.",
+    canonicalPath: "/payroll-software-pricing",
+  },
+  content: {
+    intro: "Payroll software pricing varies by provider.",
+    sections: [
+      { heading: "Plan Tiers", body: "Most vendors offer starter, professional, and enterprise plans." },
+      { heading: "Hidden Costs", body: "Watch for per-employee fees and add-on modules." },
+    ],
+    faqs: [
+      { question: "What is the average cost?", answer: "Small-business plans typically range from $20-$80/month." },
+    ],
+    comparisons: [],
+  },
+  schema: { type: "WebPage", name: "Payroll Software Pricing", description: "Compare payroll pricing." },
+  warnings: [],
+};
+
+describe("loadEnrichedContent", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), "sophon-enrich-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns null when no enriched content exists", async () => {
+    const result = await loadEnrichedContent("nonexistent-slug", tmpDir);
+    expect(result).toBeNull();
+  });
+
+  it("loads enriched content when file exists", async () => {
+    const slugDir = path.join(tmpDir, "test-slug");
+    await mkdir(slugDir, { recursive: true });
+    await writeFile(path.join(slugDir, "content.json"), JSON.stringify(ENRICHED_FIXTURE));
+
+    const result = await loadEnrichedContent("test-slug", tmpDir);
+    expect(result).not.toBeNull();
+    expect(result?.seo.title).toBe("Enriched Payroll Title");
+    expect(result?.content.sections).toHaveLength(2);
+  });
+});
+
+describe("buildHydrationMap with enrichment", () => {
+  it("uses enriched SEO title when available", () => {
+    const entity = makeEntity();
+    const map = buildHydrationMap(entity, undefined, ENRICHED_FIXTURE);
+    expect(map["__ENTITY_TITLE__"]).toContain("Enriched Payroll Title");
+  });
+
+  it("uses enriched meta description when available", () => {
+    const entity = makeEntity();
+    const map = buildHydrationMap(entity, undefined, ENRICHED_FIXTURE);
+    expect(map["__ENTITY_DESCRIPTION__"]).toContain("Enriched meta description");
+  });
+
+  it("uses enriched schema type in JSON-LD", () => {
+    const entity = makeEntity();
+    const enrichedWithType = { ...ENRICHED_FIXTURE, schema: { ...ENRICHED_FIXTURE.schema, type: "SoftwareApplication" } };
+    const map = buildHydrationMap(entity, undefined, enrichedWithType);
+    expect(map["__ENTITY_SCHEMA_JSONLD__"]).toContain("SoftwareApplication");
+  });
+
+  it("falls back to entity data without enrichment", () => {
+    const entity = makeEntity();
+    const map = buildHydrationMap(entity, undefined, null);
+    expect(map["__ENTITY_TITLE__"]).toContain("Payroll Software Pricing");
+  });
+});
+
+describe("renderYmylDisclaimer", () => {
+  it("returns empty string for non-YMYL entities", () => {
+    const entity = makeEntity({ name: "project management tool" });
+    expect(renderYmylDisclaimer("nextjs", entity)).toBe("");
+  });
+
+  it("renders a disclaimer for health-related entities", () => {
+    const entity = makeEntity({ name: "mental health apps" });
+    const html = renderYmylDisclaimer("nextjs", entity);
+    expect(html).toContain("Disclaimer");
+    expect(html).toContain("informational purposes only");
+    expect(html).toContain("aside");
+  });
+
+  it("renders a disclaimer for financial entities", () => {
+    const entity = makeEntity({ name: "investment platforms" });
+    const html = renderYmylDisclaimer("nextjs", entity);
+    expect(html).toContain("Disclaimer");
+    expect(html).toContain("qualified professional");
+  });
+
+  it("uses Tailwind classes for nextjs framework", () => {
+    const entity = makeEntity({ name: "health insurance" });
+    const html = renderYmylDisclaimer("nextjs", entity);
+    expect(html).toContain("className=");
+    expect(html).toContain("rounded-xl");
+  });
+
+  it("uses plain HTML for non-Tailwind frameworks", () => {
+    const entity = makeEntity({ name: "health insurance" });
+    for (const fw of ["astro", "nuxt", "sveltekit", "remix"] as Framework[]) {
+      const html = renderYmylDisclaimer(fw, entity);
+      expect(html).toContain("<aside");
+      expect(html).not.toContain("className=");
+    }
+  });
+
+  it("injects disclaimer into generated YMYL pages", async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), "sophon-ymyl-"));
+    try {
+      const entity = makeEntity({ name: "health insurance plans", slug: "health-insurance-plans" });
+      await generate({
+        entities: [entity],
+        framework: "nextjs",
+        output: tmpDir,
+        force: true,
+      });
+      const content = await readFile(path.join(tmpDir, "health-insurance-plans", "page.tsx"), "utf8");
+      expect(content).toContain("Disclaimer");
+      expect(content).toContain("informational purposes only");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not inject disclaimer into non-YMYL pages", async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), "sophon-noymyl-"));
+    try {
+      const entity = makeEntity();
+      await generate({
+        entities: [entity],
+        framework: "nextjs",
+        output: tmpDir,
+        force: true,
+      });
+      const content = await readFile(path.join(tmpDir, "payroll-software-pricing", "page.tsx"), "utf8");
+      expect(content).not.toContain("Disclaimer");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });

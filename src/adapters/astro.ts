@@ -15,6 +15,9 @@ const entity = {
   tags: __ENTITY_TAGS__,
   attributes: __ENTITY_ATTRIBUTES__,
 };
+
+const siteUrl = __SITE_URL__;
+const jsonLd = __ENTITY_SCHEMA_JSONLD__;
 ---
 
 <html lang="en">
@@ -23,24 +26,25 @@ const entity = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{entity.title}</title>
     <meta name="description" content={entity.description} />
-    <link rel="canonical" href={\`/\${entity.slug}\`} />
+    <link rel="canonical" href={\`\${siteUrl}/\${entity.slug}\`} />
     <!-- Open Graph -->
     <meta property="og:title" content={entity.title} />
     <meta property="og:description" content={entity.description} />
-    <meta property="og:url" content={\`/\${entity.slug}\`} />
+    <meta property="og:url" content={\`\${siteUrl}/\${entity.slug}\`} />
     <meta property="og:type" content="website" />
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={entity.title} />
     <meta name="twitter:description" content={entity.description} />
+    <!-- JSON-LD Schema -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
     <main>
       <h1>{entity.title}</h1>
       <p>{entity.description}</p>
-      <!-- Sophon intent: __ENTITY_INTENT__ -->
+__ENTITY_YMYL_DISCLAIMER__
 __ENTITY_SECTIONS__
-      <pre>{JSON.stringify({ tags: entity.tags, attributes: entity.attributes }, null, 2)}</pre>
     </main>
   </body>
 </html>

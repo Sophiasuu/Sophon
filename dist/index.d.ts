@@ -57,6 +57,7 @@ type GenerateOptions = {
     output?: string;
     template?: string;
     force?: boolean;
+    site?: string;
 };
 type TechnicalOptions = {
     entities: EntityRecord[];
@@ -68,6 +69,8 @@ type EnrichOptions = {
     entities: EntityRecord[];
     apiKey?: string;
     output?: string;
+    concurrency?: number;
+    force?: boolean;
 };
 type GenerateSummary = {
     total: number;
@@ -106,14 +109,153 @@ type AuditResult = {
     grade: string;
     checks: AuditCheck[];
 };
+type GSCCredentials = {
+    type: "service_account" | "oauth";
+    keyFilePath?: string;
+    accessToken?: string;
+};
+type GSCQueryRow = {
+    keys: string[];
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+};
+type GSCPageMetrics = {
+    page: string;
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+    topQueries: GSCQueryRow[];
+};
+type GSCFetchOptions = {
+    site: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    accessToken?: string;
+    dimensions?: string[];
+};
+type GSCResponse = {
+    rows: GSCQueryRow[];
+    responseAggregationType?: string;
+};
+type OptimizationIssueType = "low_ctr" | "low_impressions" | "poor_position" | "striking_distance" | "high_impressions_low_clicks" | "intent_mismatch" | "weak_linking";
+type RecommendationType = "meta" | "content" | "structure" | "linking";
+type OptimizationRecommendation = {
+    type: RecommendationType;
+    action: string;
+    reasoning: string;
+};
+type OptimizationPriority = "critical" | "high" | "medium" | "low";
+type EntityOptimizationResult = {
+    entity: string;
+    slug: string;
+    metrics: {
+        clicks: number;
+        impressions: number;
+        ctr: number;
+        position: number;
+    };
+    optimizationScore: number;
+    issues: string[];
+    issueTypes: OptimizationIssueType[];
+    recommendations: OptimizationRecommendation[];
+    priority: OptimizationPriority;
+};
+type OptimizationReport = {
+    generatedAt: string;
+    site: string;
+    totalEntities: number;
+    analyzedEntities: number;
+    summary: {
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+        averageScore: number;
+    };
+    entities: EntityOptimizationResult[];
+};
+type OptimizeOptions = {
+    site: string;
+    entities: EntityRecord[];
+    limit?: number;
+    autoFix?: boolean;
+    output?: string;
+    accessToken?: string;
+    gscData?: GSCPageMetrics[];
+};
+type BlogOptions$1 = {
+    entities: EntityRecord[];
+    output?: string;
+    postsPerEntity?: number;
+};
+type QualityOptions = {
+    entities: EntityRecord[];
+    contentDir?: string;
+    output?: string;
+};
+type KeywordOptions = {
+    entities: EntityRecord[];
+    output?: string;
+};
+type EnrichedSection = {
+    heading: string;
+    body: string;
+};
+type EnrichedFaq = {
+    question: string;
+    answer: string;
+};
+type EnrichedComparison = {
+    entity: string;
+    difference: string;
+};
+type EnrichedContent = {
+    slug: string;
+    seo: {
+        title: string;
+        metaDescription: string;
+        canonicalPath: string;
+    };
+    content: {
+        intro: string;
+        sections: EnrichedSection[];
+        faqs: EnrichedFaq[];
+        comparisons: EnrichedComparison[];
+    };
+    schema: {
+        type: string;
+        name: string;
+        description: string;
+    };
+    warnings: string[];
+};
 
 declare const DEFAULT_PATTERNS: string[];
 declare function discover(options: DiscoverOptions): Promise<DiscoverResult>;
 
 declare function propose(options: ProposeOptions): ProposeResult;
 
+declare function renderYmylDisclaimer(framework: Framework, entity: EntityRecord): string;
+declare function loadEnrichedContent(slug: string, enrichDir?: string): Promise<EnrichedContent | null>;
 declare function generate(options: GenerateOptions): Promise<GenerateSummary>;
 
+type FaqSchemaRecord = {
+    "@context": "https://schema.org";
+    "@type": "FAQPage";
+    mainEntity: Array<{
+        "@type": "Question";
+        name: string;
+        acceptedAnswer: {
+            "@type": "Answer";
+            text: string;
+        };
+    }>;
+};
+declare function buildFaqSchema(entity: EntityRecord, enrichedFaqs?: EnrichedFaq[]): FaqSchemaRecord | null;
 declare function technical(options: TechnicalOptions): Promise<void>;
 
 declare function enrich(options: EnrichOptions): Promise<void>;
@@ -143,6 +285,139 @@ declare function renderSections(framework: Framework, sections: SectionDefinitio
 
 declare function scoreEntities(entities: EntityRecord[]): ScoreResult;
 
+declare function fetchGSCData(options: GSCFetchOptions): Promise<GSCPageMetrics[]>;
+/**
+ * Build GSCPageMetrics from pre-loaded data (for testing or offline use).
+ */
+declare function buildMetricsFromRows(rows: GSCQueryRow[]): GSCPageMetrics[];
+
+type MappedEntity = {
+    entity: EntityRecord;
+    metrics: GSCPageMetrics | undefined;
+};
+/**
+ * Map GSC page metrics to Sophon entities by matching URL slugs.
+ *
+ * Matching strategy (in order):
+ * 1. Exact slug match in URL path
+ * 2. URL path ends with entity slug
+ * 3. Slug appears anywhere in URL path
+ */
+declare function mapEntitiesToGSC(entities: EntityRecord[], gscPages: GSCPageMetrics[], siteUrl: string): MappedEntity[];
+/**
+ * Returns only entities that have matching GSC data (mapped entities).
+ */
+declare function filterMappedEntities(mapped: MappedEntity[]): MappedEntity[];
+/**
+ * Returns entities that have no GSC data (unmapped / not indexed).
+ */
+declare function filterUnmappedEntities(mapped: MappedEntity[]): MappedEntity[];
+
+declare function analyzeEntity(mapped: MappedEntity): EntityOptimizationResult | undefined;
+declare function analyzeAll(mappedEntities: MappedEntity[]): EntityOptimizationResult[];
+declare function calculateScore(metrics: GSCPageMetrics, issueTypes: OptimizationIssueType[]): number;
+
+declare function generateRecommendations(issueTypes: OptimizationIssueType[], metrics: GSCPageMetrics, entity: EntityRecord): OptimizationRecommendation[];
+
+type AutoFixResult = {
+    slug: string;
+    applied: string[];
+    skipped: string[];
+};
+declare function applyAutoFixes(results: EntityOptimizationResult[], entities: EntityRecord[], outputRoot: string): Promise<AutoFixResult[]>;
+/**
+ * Check if a file is Sophon-generated (safe to modify).
+ */
+declare function isSophonFile(filePath: string): Promise<boolean>;
+
+declare function optimize(options: OptimizeOptions): Promise<OptimizationReport>;
+
+/**
+ * Content humanization — post-process AI-generated text to remove
+ * mechanical patterns, AI-isms, and formatting artifacts.
+ */
+declare function humanize(text: string): string;
+/**
+ * Humanize all string fields in a JSON content object recursively.
+ */
+declare function humanizeContent(obj: unknown): unknown;
+/**
+ * Count AI-ism occurrences for quality scoring purposes.
+ */
+declare function countAiPatterns(text: string): number;
+
+/**
+ * Content quality scoring — evaluate generated/enriched content
+ * for word count, readability, heading structure, and uniqueness signals.
+ */
+
+type QualityCheck = {
+    label: string;
+    score: number;
+    maxScore: number;
+    passed: boolean;
+    detail?: string;
+};
+type ContentQualityResult = {
+    slug: string;
+    name: string;
+    overallScore: number;
+    grade: string;
+    checks: QualityCheck[];
+};
+type QualityReport = {
+    generatedAt: string;
+    entityCount: number;
+    averageScore: number;
+    averageGrade: string;
+    entities: ContentQualityResult[];
+};
+declare function fleschKincaid(text: string): number;
+declare function trigramOverlap(textA: string, textB: string): number;
+declare function scoreContent(entity: EntityRecord, content: string): ContentQualityResult;
+declare function scoreAllContent(entities: EntityRecord[], contentMap: Map<string, string>): QualityReport;
+
+/**
+ * Keyword data integration — basic keyword scoring and volume estimation.
+ * Uses heuristic signals (word count, modifier presence, competition indicators)
+ * since we don't depend on paid keyword APIs.
+ */
+
+type KeywordDifficulty = "easy" | "medium" | "hard";
+type KeywordData = {
+    keyword: string;
+    slug: string;
+    estimatedMonthlyVolume: number;
+    difficulty: KeywordDifficulty;
+    intent: ProposedEntityIntent;
+    cpcEstimate: string;
+    opportunityScore: number;
+};
+declare function analyzeKeyword(entity: EntityRecord): KeywordData;
+declare function analyzeKeywords(entities: EntityRecord[]): KeywordData[];
+
+/**
+ * Blog / supporting content generation — creates supporting article
+ * outlines for entity pages to build topical authority and internal linking.
+ */
+
+type BlogOutline = {
+    slug: string;
+    parentEntity: string;
+    title: string;
+    intent: ProposedEntityIntent;
+    sections: string[];
+    internalLinks: string[];
+    targetKeywords: string[];
+};
+type BlogOptions = {
+    entities: EntityRecord[];
+    output?: string;
+    postsPerEntity?: number;
+};
+declare function generateBlogOutlines(entities: EntityRecord[], postsPerEntity?: number): BlogOutline[];
+declare function blog(options: BlogOptions): Promise<BlogOutline[]>;
+
 declare function nextjs(_options: GenerateOptions): string;
 
 declare function astro(_options: GenerateOptions): string;
@@ -164,4 +439,4 @@ declare function safeJsonStringify(value: unknown): string;
 declare function gradeFromScore(score: number): string;
 declare function assertSafePath(filePath: string): void;
 
-export { type AuditCheck, type AuditResult, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EntityRecord, type EntityScore, type Framework, type GenerateOptions, type GenerateSummary, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type ScoreCheck, type ScoreResult, type TechnicalOptions, assertSafePath, astro, audit, classifyIntent, discover, enrich, generate, getSections, gradeFromScore, nextjs, nuxt, propose, remix, renderSections, safeJsonStringify, scoreEntities, slugify, stableHash, sveltekit, teach, technical };
+export { type AuditCheck, type AuditResult, type BlogOptions$1 as BlogOptions, DEFAULT_PATTERNS, type DiscoverMode, type DiscoverOptions, type DiscoverResult, type EnrichOptions, type EnrichedComparison, type EnrichedContent, type EnrichedFaq, type EnrichedSection, type EntityOptimizationResult, type EntityRecord, type EntityScore, type Framework, type GSCCredentials, type GSCFetchOptions, type GSCPageMetrics, type GSCQueryRow, type GSCResponse, type GenerateOptions, type GenerateSummary, type KeywordOptions, type OptimizationIssueType, type OptimizationPriority, type OptimizationRecommendation, type OptimizationReport, type OptimizeOptions, type ProposeOptions, type ProposeResult, type ProposedEntity, type ProposedEntityAction, type ProposedEntityIntent, type QualityOptions, type RecommendationType, type ScoreCheck, type ScoreResult, type TechnicalOptions, analyzeAll, analyzeEntity, analyzeKeyword, analyzeKeywords, applyAutoFixes, assertSafePath, astro, audit, blog, buildFaqSchema, buildMetricsFromRows, calculateScore, classifyIntent, countAiPatterns, discover, enrich, fetchGSCData, filterMappedEntities, filterUnmappedEntities, fleschKincaid, generate, generateBlogOutlines, generateRecommendations, getSections, gradeFromScore, humanize, humanizeContent, isSophonFile, loadEnrichedContent, mapEntitiesToGSC, nextjs, nuxt, optimize, propose, remix, renderSections, renderYmylDisclaimer, safeJsonStringify, scoreAllContent, scoreContent, scoreEntities, slugify, stableHash, sveltekit, teach, technical, trigramOverlap };

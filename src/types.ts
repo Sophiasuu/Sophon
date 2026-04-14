@@ -71,6 +71,7 @@ export type GenerateOptions = {
   output?: string;
   template?: string;
   force?: boolean;
+  site?: string;
 };
 
 export type TechnicalOptions = {
@@ -84,6 +85,8 @@ export type EnrichOptions = {
   entities: EntityRecord[];
   apiKey?: string;
   output?: string;
+  concurrency?: number;
+  force?: boolean;
 };
 
 export type GenerateSummary = {
@@ -127,4 +130,164 @@ export type AuditResult = {
   maxScore: number;
   grade: string;
   checks: AuditCheck[];
+};
+
+// ── Optimize types ──────────────────────────────────────────
+
+export type GSCCredentials = {
+  type: "service_account" | "oauth";
+  keyFilePath?: string;
+  accessToken?: string;
+};
+
+export type GSCQueryRow = {
+  keys: string[];
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
+
+export type GSCPageMetrics = {
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  topQueries: GSCQueryRow[];
+};
+
+export type GSCFetchOptions = {
+  site: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  accessToken?: string;
+  dimensions?: string[];
+};
+
+export type GSCResponse = {
+  rows: GSCQueryRow[];
+  responseAggregationType?: string;
+};
+
+export type OptimizationIssueType =
+  | "low_ctr"
+  | "low_impressions"
+  | "poor_position"
+  | "striking_distance"
+  | "high_impressions_low_clicks"
+  | "intent_mismatch"
+  | "weak_linking";
+
+export type RecommendationType = "meta" | "content" | "structure" | "linking";
+
+export type OptimizationRecommendation = {
+  type: RecommendationType;
+  action: string;
+  reasoning: string;
+};
+
+export type OptimizationPriority = "critical" | "high" | "medium" | "low";
+
+export type EntityOptimizationResult = {
+  entity: string;
+  slug: string;
+  metrics: {
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  };
+  optimizationScore: number;
+  issues: string[];
+  issueTypes: OptimizationIssueType[];
+  recommendations: OptimizationRecommendation[];
+  priority: OptimizationPriority;
+};
+
+export type OptimizationReport = {
+  generatedAt: string;
+  site: string;
+  totalEntities: number;
+  analyzedEntities: number;
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    averageScore: number;
+  };
+  entities: EntityOptimizationResult[];
+};
+
+export type OptimizeOptions = {
+  site: string;
+  entities: EntityRecord[];
+  limit?: number;
+  autoFix?: boolean;
+  output?: string;
+  accessToken?: string;
+  gscData?: GSCPageMetrics[];
+};
+
+// ── Blog types ──────────────────────────────────────────────
+
+export type BlogOptions = {
+  entities: EntityRecord[];
+  output?: string;
+  postsPerEntity?: number;
+};
+
+// ── Quality types ───────────────────────────────────────────
+
+export type QualityOptions = {
+  entities: EntityRecord[];
+  contentDir?: string;
+  output?: string;
+};
+
+// ── Keyword types ───────────────────────────────────────────
+
+export type KeywordOptions = {
+  entities: EntityRecord[];
+  output?: string;
+};
+
+// ── Enriched content types ──────────────────────────────────
+
+export type EnrichedSection = {
+  heading: string;
+  body: string;
+};
+
+export type EnrichedFaq = {
+  question: string;
+  answer: string;
+};
+
+export type EnrichedComparison = {
+  entity: string;
+  difference: string;
+};
+
+export type EnrichedContent = {
+  slug: string;
+  seo: {
+    title: string;
+    metaDescription: string;
+    canonicalPath: string;
+  };
+  content: {
+    intro: string;
+    sections: EnrichedSection[];
+    faqs: EnrichedFaq[];
+    comparisons: EnrichedComparison[];
+  };
+  schema: {
+    type: string;
+    name: string;
+    description: string;
+  };
+  warnings: string[];
 };
